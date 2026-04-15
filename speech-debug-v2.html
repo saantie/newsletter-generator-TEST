@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Voice Debug v2 — Newsletter365</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Sarabun:wght@400;700&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Sarabun',sans-serif;background:#0a0e17;color:#c8d6e5;min-height:100vh;padding:10px}
+
+.header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.header h1{font-family:'JetBrains Mono',monospace;font-size:15px;color:#00e676}
+.dot{width:8px;height:8px;border-radius:50%;background:#00e676;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(239,83,80,.4)}50%{box-shadow:0 0 0 8px rgba(239,83,80,0)}}
+
+.info{background:#131a2b;border:1px solid #1e2d4a;border-radius:8px;padding:8px;margin-bottom:8px;font-size:11px;font-family:'JetBrains Mono',monospace;line-height:1.5}
+.info b{color:#ffd54f}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:8px}
+.stat{background:#131a2b;border:1px solid #1e2d4a;border-radius:6px;padding:6px;text-align:center}
+.stat .n{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:#00e676}
+.stat .l{font-size:9px;color:#546e7a;margin-top:1px}
+
+.controls{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.btn{padding:8px 14px;border-radius:8px;border:none;font-family:'Sarabun',sans-serif;font-size:13px;font-weight:700;cursor:pointer;min-height:40px}
+.btn-rec{background:#00e676;color:#0a0e17;flex:1}
+.btn-rec.on{background:#ef5350;color:#fff;animation:pulse 1s infinite}
+.btn-sm{background:#1e2d4a;color:#78909c;font-size:11px;padding:6px 10px}
+
+.opt{display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;align-items:center}
+.opt label{font-size:12px;display:flex;align-items:center;gap:3px;background:#131a2b;padding:5px 8px;border-radius:6px;border:1px solid #1e2d4a}
+.opt input[type=checkbox]{accent-color:#00e676;width:16px;height:16px}
+.opt select,.opt input[type=number]{background:#131a2b;color:#c8d6e5;border:1px solid #1e2d4a;border-radius:6px;padding:4px 6px;font-size:12px;width:70px}
+
+.result{background:#0d1520;border:1px solid #1e2d4a;border-radius:8px;padding:8px;margin-bottom:8px;min-height:50px;font-size:14px;line-height:1.5;word-break:break-word}
+.result .f{color:#e0e0e0}
+.result .i{color:#ffd54f;opacity:.7;font-style:italic}
+.result .dup{color:#ef5350;text-decoration:line-through;opacity:.5}
+
+.log-wrap{background:#0d1520;border:1px solid #1e2d4a;border-radius:8px;overflow:hidden;display:flex;flex-direction:column;max-height:50vh}
+.log-head{background:#131a2b;padding:6px 8px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#546e7a;border-bottom:1px solid #1e2d4a;display:flex;justify-content:space-between;position:sticky;top:0}
+.log{overflow-y:auto;padding:4px;flex:1}
+.le{font-family:'JetBrains Mono',monospace;font-size:10px;line-height:1.4;padding:2px 4px;border-radius:3px;margin-bottom:1px;display:flex;gap:6px;word-break:break-word}
+.le:nth-child(odd){background:rgba(255,255,255,.02)}
+.le .ts{color:#546e7a;white-space:nowrap;flex-shrink:0}
+.le .ev{min-width:65px;flex-shrink:0;font-weight:700}
+.ev-start{color:#00e676}.ev-result{color:#42a5f5}.ev-end{color:#ffd54f}
+.ev-error{color:#ef5350}.ev-info{color:#78909c}.ev-warn{color:#ff9800}
+.ev-dup{color:#ef5350}.ev-filter{color:#ab47bc}
+
+.section-title{font-size:11px;color:#546e7a;margin:6px 0 3px;font-family:'JetBrains Mono',monospace}
+</style>
+</head>
+<body>
+
+<div class="header"><span class="dot"></span><h1>Voice Debug v2</h1></div>
+
+<div class="info" id="devInfo"></div>
+
+<div class="stats">
+  <div class="stat"><div class="n" id="sStart">0</div><div class="l">start</div></div>
+  <div class="stat"><div class="n" id="sEnd">0</div><div class="l">onend</div></div>
+  <div class="stat"><div class="n" id="sResult">0</div><div class="l">results</div></div>
+  <div class="stat"><div class="n" id="sFiltered">0</div><div class="l">filtered</div></div>
+  <div class="stat"><div class="n" id="sDup">0</div><div class="l">duplicates</div></div>
+  <div class="stat"><div class="n" id="sLife">-</div><div class="l">avg ms</div></div>
+</div>
+
+<div class="opt">
+  <label>delay <select id="optDelay">
+    <option value="0">0ms</option>
+    <option value="100">100ms</option>
+    <option value="200">200ms</option>
+    <option value="350" selected>350ms</option>
+    <option value="500">500ms</option>
+    <option value="800">800ms</option>
+  </select></label>
+  <label><input type="checkbox" id="optDupGuard" checked> dup guard</label>
+  <label><input type="checkbox" id="optFilterEmpty" checked> filter empty</label>
+</div>
+
+<div class="controls">
+  <button class="btn btn-rec" id="btnRec">🎤 เริ่มบันทึก</button>
+  <button class="btn btn-sm" onclick="clearAll()">🗑</button>
+  <button class="btn btn-sm" onclick="exportLog()">📋</button>
+</div>
+
+<div class="section-title">Output (base + final + interim)</div>
+<div class="result" id="resultBox"><span style="color:#546e7a">ข้อความจะแสดงที่นี่...</span></div>
+
+<div class="section-title">Accumulation State</div>
+<div class="info" id="stateBox" style="font-size:10px;min-height:30px"></div>
+
+<div class="log-wrap">
+  <div class="log-head"><span>Event Log</span><span id="logCount">0</span></div>
+  <div class="log" id="logBox"></div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const ua=navigator.userAgent;
+const isAndroid=/Android/i.test(ua);
+const chromeVer=(ua.match(/Chrome\/(\d+)/)||[])[1]||'?';
+const androidVer=(ua.match(/Android\s([\d.]+)/)||[])[1]||'N/A';
+$('devInfo').innerHTML=
+  `Platform: <b>${isAndroid?'Android '+androidVer:'Desktop/iOS'}</b> | Chrome: <b>${chromeVer}</b> | `+
+  `SR: <b>${'SpeechRecognition' in window}</b> webkit: <b>${'webkitSpeechRecognition' in window}</b>`;
+
+/* ── state (mirrors VoiceBtn exactly) ── */
+let rrRef=null;       // SpeechRecognition instance
+let recRef=false;     // user wants recording
+let baseRef="";
+let finalRef="";
+let lastFinalRef="";  // duplicate guard
+
+let logs=[];
+let S={start:0,end:0,result:0,filtered:0,dup:0,lives:[]};
+let sessionStart=0;
+
+function ts(){const d=new Date();return d.toTimeString().slice(0,8)+'.'+String(d.getMilliseconds()).padStart(3,'0')}
+function log(ev,cls,msg){
+  const t=ts();
+  logs.push({t,ev,msg});
+  const el=document.createElement('div');
+  el.className='le';
+  el.innerHTML=`<span class="ts">${t}</span><span class="ev ev-${cls}">${ev}</span><span>${msg}</span>`;
+  const box=$('logBox');
+  box.appendChild(el);
+  box.scrollTop=box.scrollHeight;
+  $('logCount').textContent=logs.length;
+}
+function updateStats(){
+  $('sStart').textContent=S.start;
+  $('sEnd').textContent=S.end;
+  $('sResult').textContent=S.result;
+  $('sFiltered').textContent=S.filtered;
+  $('sDup').textContent=S.dup;
+  if(S.lives.length)$('sLife').textContent=Math.round(S.lives.reduce((a,b)=>a+b,0)/S.lives.length);
+}
+function updateState(){
+  $('stateBox').innerHTML=
+    `base: "<b>${esc(baseRef)}</b>" | final: "<b>${esc(finalRef)}</b>" | lastFinal: "<b>${esc(lastFinalRef)}</b>"`;
+}
+function esc(s){return s.replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+/* ── stopAll (mirrors code exactly) ── */
+function stopAll(){
+  recRef=false;
+  if(rrRef){
+    rrRef.onend=null;rrRef.onresult=null;rrRef.onerror=null;
+    try{rrRef.abort();}catch(e){}
+    rrRef=null;
+    log('STOP','warn','abort + handlers cleared');
+  }
+  updateBtn(false);
+}
+
+/* ── startSession (mirrors code exactly + logging) ── */
+function startSession(){
+  if(!recRef)return;
+  if(rrRef){log('SKIP','warn','instance exists');return;}
+  
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){log('NO_SR','error','ไม่รองรับ');return;}
+  
+  const r=new SR();
+  r.lang='th-TH';
+  r.continuous=false;
+  r.interimResults=true;
+  finalRef="";
+  sessionStart=performance.now();
+  
+  S.start++;
+  log('START','start',`session #${S.start} | continuous:false interimResults:true`);
+
+  r.onaudiostart=()=>log('AUDIO_START','start','mic stream เริ่ม');
+  r.onspeechstart=()=>log('SPEECH_START','start','ตรวจพบเสียงพูด');
+  r.onspeechend=()=>log('SPEECH_END','info','หยุดพูด');
+  r.onaudioend=()=>log('AUDIO_END','info','mic stream จบ');
+
+  r.onresult=e=>{
+    S.result++;
+    let interim="";
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const t=e.results[i][0].transcript;
+      const c=e.results[i][0].confidence;
+      
+      if(e.results[i].isFinal){
+        const useFilter=$('optFilterEmpty').checked;
+        const useDup=$('optDupGuard').checked;
+        
+        /* filter empty */
+        if(useFilter && (!t||!t.trim())){
+          S.filtered++;
+          log('FILTERED','filter',`empty final idx:${i} conf:${c.toFixed(2)}`);
+          updateStats();
+          continue;
+        }
+        
+        /* duplicate guard */
+        if(useDup && t===lastFinalRef){
+          S.dup++;
+          log('DUP_BLOCKED','dup',`"${t}" === lastFinal | conf:${c.toFixed(2)} idx:${i}`);
+          updateStats();
+          continue;
+        }
+        
+        /* accepted */
+        finalRef+=t;
+        lastFinalRef=t;
+        log('FINAL_OK','result',`"${t}" conf:${c.toFixed(2)} idx:${i}`);
+      }else{
+        interim=t;
+        log('INTERIM','result',`"${t}" idx:${i}`);
+      }
+    }
+    
+    const output=baseRef+finalRef+interim;
+    $('resultBox').innerHTML=`<span class="f">${esc(baseRef+finalRef)}</span><span class="i">${esc(interim)}</span>`;
+    updateState();
+    updateStats();
+  };
+
+  r.onend=()=>{
+    const life=Math.round(performance.now()-sessionStart);
+    S.end++;
+    S.lives.push(life);
+    
+    const hadFinal=!!finalRef;
+    log('END','end',`${life}ms | hadFinal:${hadFinal} | wantRec:${recRef}`);
+    
+    /* flush (mirrors code) */
+    if(finalRef){baseRef+=finalRef;finalRef="";}
+    rrRef=null;
+    
+    if(recRef){
+      const delay=parseInt($('optDelay').value)||0;
+      log('RESTART','warn',`ใน ${delay}ms...`);
+      setTimeout(()=>{
+        if(recRef)try{startSession();}catch(e){recRef=false;updateBtn(false);}
+      },delay);
+    }else{updateBtn(false);}
+    
+    updateState();
+    updateStats();
+  };
+
+  r.onerror=e=>{
+    log('ERROR','error',`${e.error}: ${e.message||''}`);
+    if(e.error==='no-speech'||e.error==='aborted')return;
+    stopAll();
+    updateStats();
+  };
+
+  rrRef=r;
+  try{r.start();log('R_START','start','r.start() called');}
+  catch(e){log('START_FAIL','error',e.message);stopAll();}
+}
+
+/* ── toggle (mirrors code) ── */
+function toggle(){
+  if(recRef){stopAll();return;}
+  if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){
+    log('NO_SUPPORT','error','browser ไม่รองรับ');return;
+  }
+  baseRef="";finalRef="";lastFinalRef="";
+  recRef=true;
+  updateBtn(true);
+  $('resultBox').innerHTML='<span style="color:#546e7a">กำลังฟัง...</span>';
+  startSession();
+  /* auto-stop 2 min */
+  setTimeout(()=>{if(recRef)stopAll();},120000);
+}
+
+function updateBtn(on){
+  const b=$('btnRec');
+  b.textContent=on?'⏹ หยุดบันทึก':'🎤 เริ่มบันทึก';
+  b.className='btn btn-rec'+(on?' on':'');
+}
+$('btnRec').addEventListener('click',toggle);
+
+function clearAll(){
+  logs=[];S={start:0,end:0,result:0,filtered:0,dup:0,lives:[]};
+  baseRef="";finalRef="";lastFinalRef="";
+  $('logBox').innerHTML='';$('logCount').textContent='0';
+  $('resultBox').innerHTML='<span style="color:#546e7a">ข้อความจะแสดงที่นี่...</span>';
+  $('stateBox').innerHTML='';
+  updateStats();
+}
+
+function exportLog(){
+  const info=$('devInfo').innerText;
+  const settings=`delay:${$('optDelay').value}ms dupGuard:${$('optDupGuard').checked} filterEmpty:${$('optFilterEmpty').checked}`;
+  const stats=`start:${S.start} end:${S.end} result:${S.result} filtered:${S.filtered} dup:${S.dup} avgLife:${$('sLife').textContent}ms`;
+  const base=`base:"${baseRef}" final:"${finalRef}" lastFinal:"${lastFinalRef}"`;
+  const text=logs.map(l=>`${l.t} [${l.ev}] ${l.msg}`).join('\n');
+  const full=`=== Device ===\n${info}\n\n=== Settings ===\n${settings}\n\n=== Stats ===\n${stats}\n\n=== State ===\n${base}\n\n=== Log ===\n${text}`;
+  if(navigator.clipboard)navigator.clipboard.writeText(full).then(()=>alert('Copied!')).catch(()=>fb(full));
+  else fb(full);
+}
+function fb(t){const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');document.body.removeChild(a);alert('Copied!');}
+</script>
+</body>
+</html>
