@@ -2297,21 +2297,23 @@ button:hover{filter:brightness(.96)}
       flexShrink: 0, 
       margin: "0 auto" 
     }}>
-      <div 
-        ref={wrapRef} 
-        style={{
-          transform: `scale(${scale})`,
-          transformOrigin: "top left",
-          width: 794,
-          height: 1123,
-          touchAction: "manipulation", // ช่วยให้การกดปุ่มใน Preview ตอบสนองเร็วขึ้น แต่ไม่ขวางการเลื่อน
-          willChange: "transform"      // ช่วยให้ GPU ประมวลผลลื่นขึ้นเวลาเลื่อน
-        }} 
-        // แนะนำ: ลองเอา 2 บรรทัดข้างล่างนี้ออกชั่วคราวเพื่อทดสอบ
-        // ถ้าเอาออกแล้วลื่นขึ้น แสดงว่าปัญหาอยู่ที่ตัวฟังก์ชัน JavaScript ครับ
-        onTouchStartCapture={onPreviewTouchStartCapture} 
-        onTouchEndCapture={onPreviewTouchEndCapture}
-      >
+     <div 
+  ref={wrapRef} 
+  style={{
+    transform:`scale(${scale})`,
+    transformOrigin:"top left",
+    width:794,
+    height:1123,
+    /* 1. เปลี่ยนเป็น pan-x pan-y เพื่อบอกเบราว์เซอร์ว่าส่วนนี้ "ยอมให้เลื่อน" ได้ทั้งสองแนว */
+    touchAction: "pan-x pan-y", 
+    /* 2. เพิ่มบรรทัดนี้เพื่อลดภาระการคำนวณของเบราว์เซอร์ขณะเลื่อน */
+    pointerEvents: "auto" 
+  }} 
+  /* 3. หากไม่ได้ใช้ฟังก์ชัน Long Press หรือการกดใน Preview 
+     แนะนำให้ลอง "เอา 2 บรรทัดข้างล่างนี้ออก" จะทำให้การเลื่อนลื่นที่สุดครับ */
+  onTouchStartCapture={onPreviewTouchStartCapture} 
+  onTouchEndCapture={onPreviewTouchEndCapture}
+>
             <Preview ck={ck} sk={sk} d={d} id="main-preview" hue={hue} brightness={brightness} saturation={saturation} vibrance={vibrance} compactParagraph={compactParagraph} stripGradDir={stripGradDir} stripGradOn={stripGradOn} hdrTextX={hdrTextX} hdrTextY={hdrTextY} headerWm={headerWm} headerWmPos={headerWmPos} headerWmZoom={headerWmZoom} headerWmOp={headerWmOp} textAlign={textAlign} isPro={isPro} scale={scale} stripHue={stripHue} stripBrt={stripBrt} stripSat={stripSat} stripVib={stripVib} stripTopHue={stripTopHue} stripTopBrt={stripTopBrt} stripTopSat={stripTopSat} stripTopVib={stripTopVib} stripBotHue={stripBotHue} stripBotBrt={stripBotBrt} stripBotSat={stripBotSat} stripBotVib={stripBotVib} showHdrBg={showHdrBg} showBodyBg={showBodyBg} showFtrBg={showFtrBg} showBgPat={showBgPat} profileGX={profileGX} profileGY={profileGY} contentOX={contentOX} contentOY={contentOY} footerTX={footerTX} footerTY={footerTY} showProfileBg={showProfileBg} stripTopOffY={stripTopOffY} stripBotOffY={stripBotOffY} onImgDrag={onImgDrag} onImgZoom={onImgZoom} onProfileDrag={onProfileDrag} onProfileZoom={onProfileZoom} onHdrWmDrag={p=>setHeaderWmPos(p)} onHdrWmZoom={z=>setHeaderWmZoom(z)} onHdrTextDrag={(x,y)=>{setHdrTextX(x);setHdrTextY(y);}} onHlDrag={(x,y)=>{setD(p=>({...p,hlOffX:x,hlOffY:y}));}} onTopHChange={v=>set("topImgH",v)} onBotHChange={v=>set("botImgH",v)} onFooterTDrag={(x,y)=>{setFooterTX(x);setFooterTY(y);}} onProfileGDrag={(x,y)=>{setProfileGX(x);setProfileGY(y);}} onContentDrag={(x,y)=>{setContentOX(x);setContentOY(y);}} onStripTopDrag={v=>setStripTopOffY(v)} onStripBotDrag={v=>setStripBotOffY(v)} decoImgs={decoImgs} onDecoDrag={(i,x,y)=>setDecoImgs(p=>p.map((img,j)=>j===i?{...img,x,y}:img))} onDecoResize={(i,w,h)=>setDecoImgs(p=>p.map((img,j)=>j===i?{...img,w,h}:img))} onDecoRotate={(i,rot)=>setDecoImgs(p=>p.map((img,j)=>j===i?{...img,rot}:img))} selectedEl={selectedEl}/>
           </div>
         </div>
