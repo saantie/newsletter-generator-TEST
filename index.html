@@ -1,5 +1,5 @@
 <!DOCTYPE html><html lang="th"><head><meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Newsletter365</title><meta name="theme-color" content="#7b3fa0">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="./manifest.json"><link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-192x192.png">
@@ -2270,33 +2270,48 @@ button:hover{filter:brightness(.96)}
       ))}
     </div>
   </div>
-  {/* Scroll area — เลื่อนได้ทั้งแนวตั้งและแนวนอน | 1-finger pan */}
-  <div 
-    ref={prevScrollRef} 
-    style={{
-      flex:1,
-      minHeight:0,
-      overflow:"auto",
-      overflowX:"auto",
-      overflowY:"auto",
-      WebkitOverflowScrolling:"touch",
-      touchAction: "pan-x pan-y"     // ← เพิ่มบรรทัดนี้
-    }}
-  >
-    <div style={{minWidth:"fit-content",margin:"0 auto",display:"flex",flexDirection:"column",alignItems:"center",padding:"80px"}}>
-      <div style={{width:Math.ceil(794*scale),height:Math.ceil(1123*scale),flexShrink:0,margin:"0 auto"}}>
-        <div 
-          ref={wrapRef} 
-          style={{
-            transform:`scale(${scale})`,
-            transformOrigin:"top left",
-            width:794,
-            height:1123,
-            touchAction: "auto"          // ← เพิ่มบรรทัดนี้
-          }} 
-          onTouchStartCapture={onPreviewTouchStartCapture} 
-          onTouchEndCapture={onPreviewTouchEndCapture}
-        >
+  {/* Scroll area — เลื่อนได้ทั้งแนวตั้งและแนวนอน */}
+<div 
+  ref={prevScrollRef} 
+  style={{
+    flex: 1,
+    minHeight: 0,
+    overflow: "auto",
+    WebkitOverflowScrolling: "touch", // เปิด Momentum Scroll สำหรับ iOS
+    overscrollBehavior: "contain",    // ป้องกันการเลื่อนหลุดไปโดนหน้าจอหลัก
+    touchAction: "auto",              // ให้เบราว์เซอร์ตัดสินใจเรื่องการเลื่อนเอง (ลื่นที่สุด)
+    background: "#f5f7fa"
+  }}
+>
+  <div style={{ 
+    minWidth: "fit-content", 
+    margin: "0 auto", 
+    display: "flex", 
+    flexDirection: "column", 
+    alignItems: "center", 
+    padding: "40px" // ลด padding ลงหน่อยเพื่อให้พื้นที่ปัดกว้างขึ้น
+  }}>
+    <div style={{ 
+      width: Math.ceil(794 * scale), 
+      height: Math.ceil(1123 * scale), 
+      flexShrink: 0, 
+      margin: "0 auto" 
+    }}>
+      <div 
+        ref={wrapRef} 
+        style={{
+          transform: `scale(${scale})`,
+          transformOrigin: "top left",
+          width: 794,
+          height: 1123,
+          touchAction: "manipulation", // ช่วยให้การกดปุ่มใน Preview ตอบสนองเร็วขึ้น แต่ไม่ขวางการเลื่อน
+          willChange: "transform"      // ช่วยให้ GPU ประมวลผลลื่นขึ้นเวลาเลื่อน
+        }} 
+        // แนะนำ: ลองเอา 2 บรรทัดข้างล่างนี้ออกชั่วคราวเพื่อทดสอบ
+        // ถ้าเอาออกแล้วลื่นขึ้น แสดงว่าปัญหาอยู่ที่ตัวฟังก์ชัน JavaScript ครับ
+        onTouchStartCapture={onPreviewTouchStartCapture} 
+        onTouchEndCapture={onPreviewTouchEndCapture}
+      >
             <Preview ck={ck} sk={sk} d={d} id="main-preview" hue={hue} brightness={brightness} saturation={saturation} vibrance={vibrance} compactParagraph={compactParagraph} stripGradDir={stripGradDir} stripGradOn={stripGradOn} hdrTextX={hdrTextX} hdrTextY={hdrTextY} headerWm={headerWm} headerWmPos={headerWmPos} headerWmZoom={headerWmZoom} headerWmOp={headerWmOp} textAlign={textAlign} isPro={isPro} scale={scale} stripHue={stripHue} stripBrt={stripBrt} stripSat={stripSat} stripVib={stripVib} stripTopHue={stripTopHue} stripTopBrt={stripTopBrt} stripTopSat={stripTopSat} stripTopVib={stripTopVib} stripBotHue={stripBotHue} stripBotBrt={stripBotBrt} stripBotSat={stripBotSat} stripBotVib={stripBotVib} showHdrBg={showHdrBg} showBodyBg={showBodyBg} showFtrBg={showFtrBg} showBgPat={showBgPat} profileGX={profileGX} profileGY={profileGY} contentOX={contentOX} contentOY={contentOY} footerTX={footerTX} footerTY={footerTY} showProfileBg={showProfileBg} stripTopOffY={stripTopOffY} stripBotOffY={stripBotOffY} onImgDrag={onImgDrag} onImgZoom={onImgZoom} onProfileDrag={onProfileDrag} onProfileZoom={onProfileZoom} onHdrWmDrag={p=>setHeaderWmPos(p)} onHdrWmZoom={z=>setHeaderWmZoom(z)} onHdrTextDrag={(x,y)=>{setHdrTextX(x);setHdrTextY(y);}} onHlDrag={(x,y)=>{setD(p=>({...p,hlOffX:x,hlOffY:y}));}} onTopHChange={v=>set("topImgH",v)} onBotHChange={v=>set("botImgH",v)} onFooterTDrag={(x,y)=>{setFooterTX(x);setFooterTY(y);}} onProfileGDrag={(x,y)=>{setProfileGX(x);setProfileGY(y);}} onContentDrag={(x,y)=>{setContentOX(x);setContentOY(y);}} onStripTopDrag={v=>setStripTopOffY(v)} onStripBotDrag={v=>setStripBotOffY(v)} decoImgs={decoImgs} onDecoDrag={(i,x,y)=>setDecoImgs(p=>p.map((img,j)=>j===i?{...img,x,y}:img))} onDecoResize={(i,w,h)=>setDecoImgs(p=>p.map((img,j)=>j===i?{...img,w,h}:img))} onDecoRotate={(i,rot)=>setDecoImgs(p=>p.map((img,j)=>j===i?{...img,rot}:img))} selectedEl={selectedEl}/>
           </div>
         </div>
