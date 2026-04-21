@@ -1226,38 +1226,6 @@ useEffect(() => {
   },[]);
   useEffect(()=>{checkPro();const h=()=>{if(!document.hidden)checkPro()};document.addEventListener("visibilitychange",h);return()=>document.removeEventListener("visibilitychange",h)},[checkPro]);
 
-  /* 2-finger pan on preview → scroll preview container (pinch = let through, pan = intercept) */
-  useEffect(()=>{
-    const el=prevScrollRef.current;if(!el)return;
-    let lx=0,ly=0,startDist=0,isPinch=false,active=false;
-    const mid=(ts)=>({x:(ts[0].clientX+ts[1].clientX)/2,y:(ts[0].clientY+ts[1].clientY)/2});
-    const dist=(ts)=>{const dx=ts[1].clientX-ts[0].clientX,dy=ts[1].clientY-ts[0].clientY;return Math.sqrt(dx*dx+dy*dy);};
-    const onStart=(e)=>{
-      if(e.touches.length<2)return;
-      if(selectedElRef.current){active=false;return;} // element selected → let it handle pinch/rotate
-      active=true;isPinch=false;
-      const m=mid(e.touches);lx=m.x;ly=m.y;
-      startDist=dist(e.touches);
-    };
-    const onMove=(e)=>{
-      if(!active||e.touches.length<2)return;
-      const d=dist(e.touches);
-      if(!isPinch&&Math.abs(d-startDist)>8){isPinch=true;}
-      if(isPinch)return; /* pinch detected → let children handle it */
-      e.preventDefault();e.stopPropagation();
-      const m=mid(e.touches);
-      el.scrollLeft-=(m.x-lx);
-      el.scrollTop-=(m.y-ly);
-      lx=m.x;ly=m.y;
-    };
-    const onEnd=(e)=>{if(e.touches.length<2){active=false;isPinch=false;}};
-    el.addEventListener("touchstart",onStart,{passive:true});
-    el.addEventListener("touchmove",onMove,{passive:false,capture:true});
-    el.addEventListener("touchend",onEnd,{passive:true});
-    el.addEventListener("touchcancel",onEnd,{passive:true});
-    return()=>{el.removeEventListener("touchstart",onStart);el.removeEventListener("touchmove",onMove,true);el.removeEventListener("touchend",onEnd);el.removeEventListener("touchcancel",onEnd);};
-  },[]);
-
   const set=useCallback((k,v)=>setD(p=>({...p,[k]:v})),[]);
   const addTopImg=url=>setD(p=>({...p,topImages:[...(p.topImages||[]),{url,pos:"50% 50%",zoom:100}]}));
   const addBotImg=url=>setD(p=>({...p,botImages:[...(p.botImages||[]),{url,pos:"50% 50%",zoom:100}]}));
@@ -2324,7 +2292,7 @@ button:hover{filter:brightness(.96)}
             transformOrigin:"top left",
             width:794,
             height:1123,
-            touchAction: "none"          // ← เพิ่มบรรทัดนี้
+            touchAction: "auto"          // ← เพิ่มบรรทัดนี้
           }} 
           onTouchStartCapture={onPreviewTouchStartCapture} 
           onTouchEndCapture={onPreviewTouchEndCapture}
