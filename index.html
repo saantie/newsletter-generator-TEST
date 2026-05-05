@@ -10,7 +10,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<style>html,body{margin:0;padding:0;height:100%;overflow:hidden;font-family:'Sarabun',sans-serif}#root{height:100%}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}@keyframes selPulse{0%,100%{outline-color:rgba(56,210,110,0.9)}50%{outline-color:rgba(56,210,110,0.25)}}@keyframes selPulseShadow{0%,100%{box-shadow:inset 0 0 0 3px rgba(56,210,110,0.9)}50%{box-shadow:inset 0 0 0 3px rgba(56,210,110,0.2)}}</style>
+<style>html,body{margin:0;padding:0;height:100%;overflow:hidden;font-family:'Sarabun',sans-serif}#root{height:100%}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}</style>
 </head><body><div id="root"></div>
 <script>
 const FIREBASE_CONFIG={apiKey:"AIzaSyA680sMySpmjo-2Myd8wZBAPYxqFDqDXdA",authDomain:"newsletter-generator-2e80d.firebaseapp.com",projectId:"newsletter-generator-2e80d"};
@@ -40,8 +40,8 @@ const ld=async()=>{try{const r=localStorage.getItem(SK);return r?JSON.parse(r):n
 // IndexedDB สำหรับเก็บรูปภาพ (ใหญ่เกิน localStorage)
 const IDB_NAME="nl365imgs",IDB_VER=1,IDB_STORE="imgs";
 const openIDB=()=>new Promise((res,rej)=>{const r=indexedDB.open(IDB_NAME,IDB_VER);r.onupgradeneeded=e=>e.target.result.createObjectStore(IDB_STORE);r.onsuccess=e=>res(e.target.result);r.onerror=rej;});
-const svImgs=async(top,bot,profileUrl,qrUrl,decoImgs)=>{try{const db=await openIDB();const tx=db.transaction(IDB_STORE,"readwrite");const st=tx.objectStore(IDB_STORE);st.put(top,"top");st.put(bot,"bot");st.put(profileUrl||"","profileUrl");st.put(qrUrl||"","qrUrl");st.put(decoImgs||[],"decoImgs");}catch(e){}};
-const ldImgs=async()=>{try{const db=await openIDB();const tx=db.transaction(IDB_STORE,"readonly");const st=tx.objectStore(IDB_STORE);const g=(k)=>new Promise(r=>{const q=st.get(k);q.onsuccess=()=>r(q.result??null);q.onerror=()=>r(null);});const [top,bot,profileUrl,qrUrl,decoImgs]=await Promise.all([g("top"),g("bot"),g("profileUrl"),g("qrUrl"),g("decoImgs")]);return{top:top||[],bot:bot||[],profileUrl:profileUrl||"",qrUrl:qrUrl||"",decoImgs:decoImgs||[]};}catch(e){return{top:[],bot:[],profileUrl:"",qrUrl:"",decoImgs:[]};}};
+const svImgs=async(top,bot,profileUrl,logos,qrUrl)=>{try{const db=await openIDB();const tx=db.transaction(IDB_STORE,"readwrite");const st=tx.objectStore(IDB_STORE);st.put(top,"top");st.put(bot,"bot");st.put(profileUrl||"","profileUrl");st.put(logos||[],"logos");st.put(qrUrl||"","qrUrl");}catch(e){}};
+const ldImgs=async()=>{try{const db=await openIDB();const tx=db.transaction(IDB_STORE,"readonly");const st=tx.objectStore(IDB_STORE);const g=(k)=>new Promise(r=>{const q=st.get(k);q.onsuccess=()=>r(q.result??null);q.onerror=()=>r(null);});const [top,bot,profileUrl,logos,qrUrl]=await Promise.all([g("top"),g("bot"),g("profileUrl"),g("logos"),g("qrUrl")]);return{top:top||[],bot:bot||[],profileUrl:profileUrl||"",logos:logos||[],qrUrl:qrUrl||""};}catch(e){return{top:[],bot:[],profileUrl:"",logos:[],qrUrl:""};}};
 
 /* ─── SVG Decorations (data-uri img for html2canvas) ─── */
 const roseSvg=(s,c1,c2)=>`data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='${s}' height='${s}' viewBox='0 0 100 100'><defs><radialGradient id='rg'><stop offset='0%' stop-color='${c2}'/><stop offset='100%' stop-color='${c1}'/></radialGradient></defs>${[0,45,90,135,180,225,270,315].map(r=>`<ellipse cx='50' cy='22' rx='15' ry='28' fill='url(%23rg)' opacity='.55' transform='rotate(${r} 50 50)'/>`).join('')}${[0,60,120,180,240,300].map(r=>`<ellipse cx='50' cy='30' rx='10' ry='18' fill='${c2}' opacity='.7' transform='rotate(${r} 50 50)'/>`).join('')}<circle cx='50' cy='50' r='10' fill='%23f9e04b' opacity='.9'/><circle cx='50' cy='50' r='5' fill='%23e8a830'/></svg>`)}`;
@@ -189,19 +189,18 @@ const getStyleBgSize=(sk)=>{
 };
 
 const FI=({src,w,h,style={}})=><img src={src} width={w||h} height={h||w} style={{position:"absolute",pointerEvents:"none",...style}} alt=""/>;
-const CropImg=({src,pos="50% 50%",zoom=100,style={},onDrag,onZoom,selId="",isSelected=false})=>{
+const CropImg=({src,pos="50% 50%",zoom=100,style={},onDrag,onZoom,isSelected})=>{
   const ref=useRef(null);const pinchRef=useRef(null);const posRef=useRef(pos);
   posRef.current=pos;
   const getDist=(t)=>Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
   const handleStart=(e)=>{
-    if(!isSelected) return;
     if(e.touches&&e.touches.length===2&&onZoom){
       e.preventDefault();pinchRef.current={dist:getDist(e.touches),zoom};
       const mv=(ev)=>{ev.preventDefault();if(ev.touches.length===2&&pinchRef.current){const d=getDist(ev.touches);const ratio=d/pinchRef.current.dist;onZoom(Math.max(100,Math.min(400,Math.round(pinchRef.current.zoom*ratio))))}};
       const up=()=>{pinchRef.current=null;window.removeEventListener("touchmove",mv);window.removeEventListener("touchend",up)};
       window.addEventListener("touchmove",mv,{passive:false});window.addEventListener("touchend",up);return;
     }
-    if(!onDrag)return;e.preventDefault();
+    if(!onDrag)return;e.preventDefault();e.stopPropagation();
     const el=ref.current;if(!el)return;const rect=el.getBoundingClientRect();
     let lastX=e.touches?e.touches[0].clientX:e.clientX;
     let lastY=e.touches?e.touches[0].clientY:e.clientY;
@@ -216,9 +215,26 @@ const CropImg=({src,pos="50% 50%",zoom=100,style={},onDrag,onZoom,selId="",isSel
     window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);window.addEventListener("touchmove",mv,{passive:false});window.addEventListener("touchend",up);
   };
   const handleWheel=(e)=>{if(!onZoom)return;e.preventDefault();e.stopPropagation();onZoom(Math.max(100,Math.min(400,zoom+(e.deltaY>0?-10:10))))};
-  return(<div ref={ref} data-selid={selId||undefined} onMouseDown={(onDrag||onZoom)?handleStart:undefined} onTouchStart={(onDrag||onZoom)?handleStart:undefined} onWheel={onZoom?handleWheel:undefined}
-    style={{backgroundImage:src?`url(${src})`:"none",backgroundSize:zoom>100?`${zoom}%`:"cover",backgroundPosition:pos,backgroundRepeat:"no-repeat",backgroundColor:"#e8e8e8",cursor:onDrag?(isSelected?"grab":"default"):"default",touchAction:"auto",overflow:"hidden",...style,boxShadow:style.boxShadow||undefined,outline:isSelected?"2.5px dashed rgba(56,210,110,0.9)":"none",outlineOffset:"3px",animation:isSelected?"selPulse 1.2s ease-in-out infinite":"none"}}>
+  return(<div ref={ref} onMouseDown={(onDrag||onZoom)?handleStart:undefined} onTouchStart={(onDrag||onZoom)?handleStart:undefined} onWheel={onZoom?handleWheel:undefined}
+    style={{backgroundImage:src?`url(${src})`:"none",backgroundSize:zoom>100?`${zoom}%`:"cover",backgroundPosition:pos,backgroundRepeat:"no-repeat",backgroundColor:"#e8e8e8",cursor:onDrag?"grab":"default",touchAction:"none",overflow:"hidden",...style}}>
     {!src&&<div style={{width:"100%",height:"100%",display:"flex",alignItems:"center",justifyContent:"center",color:"#ccc",fontSize:12}}>📷</div>}
+    {onZoom&&<div
+      data-drag-handle="resize"
+      onMouseDown={(e)=>{
+        e.preventDefault();e.stopPropagation();
+        const startX=e.clientX;const startY=e.clientY;const startZoom=zoom;
+        const mv=(ev)=>{
+          const dx=ev.clientX-startX;const dy=ev.clientY-startY;
+          const delta=Math.round((dx+dy)/2);
+          onZoom(Math.max(100,Math.min(400,startZoom+delta)));
+        };
+        const up=()=>{window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up)};
+        window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);
+      }}
+      style={{position:"absolute",bottom:4,right:4,width:16,height:16,borderRadius:3,background:"rgba(56,210,110,0.9)",cursor:"nwse-resize",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"auto"}}
+    >
+      <svg width="8" height="8" viewBox="0 0 8 8" fill="white"><path d="M0 8L8 0M4 8L8 4M8 8L8 8" stroke="white" strokeWidth="1.5" strokeLinecap="round"/></svg>
+    </div>}
   </div>);
 };
 
@@ -387,7 +403,7 @@ const mkTheme=(ck,sk,hue=0)=>{
 const FOOTER_H=82,HEADER_H=258;
 
 /* ─── Preview Component ─── */
-function Preview({ck,sk,d,id,hue=0,brightness=100,saturation=100,vibrance=100,compactParagraph=false,stripGradDir="lr",stripGradOn=true,hdrTextX=0,hdrTextY=0,headerWm="",headerWmPos="50% 50%",headerWmZoom=100,headerWmOp=50,textAlign="distribute",isPro,scale=1,stripHue=0,stripBrt=100,stripSat=100,stripVib=100,stripTopHue=0,stripTopBrt=100,stripTopSat=100,stripTopVib=100,stripBotHue=0,stripBotBrt=100,stripBotSat=100,stripBotVib=100,showHdrBg=true,showBodyBg=true,showFtrBg=true,showBgPat=true,profileGX=0,profileGY=0,contentOX=0,contentOY=0,footerTX=0,footerTY=0,showProfileBg=true,stripTopOffY=0,stripBotOffY=0,onImgDrag,onImgZoom,onProfileDrag,onProfileZoom,onHdrWmDrag,onHdrWmZoom,onHdrTextDrag,onHlDrag,onTopHChange,onBotHChange,onFooterTDrag,onProfileGDrag,onContentDrag,onStripTopDrag,onStripBotDrag,decoImgs=[],onDecoDrag,onDecoResize,onDecoRotate,selectedEl=null}){
+function Preview({ck,sk,d,id,hue=0,brightness=100,saturation=100,vibrance=100,compactParagraph=false,stripGradDir="lr",stripGradOn=true,hdrTextX=0,hdrTextY=0,headerWm="",headerWmPos="50% 50%",headerWmZoom=100,headerWmOp=50,textAlign="distribute",isPro,scale=1,stripHue=0,stripBrt=100,stripSat=100,stripVib=100,showHdrBg=true,showBodyBg=true,showFtrBg=true,showBgPat=true,profileGX=0,profileGY=0,logoGX=0,logoGY=0,contentOX=0,contentOY=0,footerTX=0,footerTY=0,showProfileBg=true,showLogoBg=true,onImgDrag,onImgZoom,onProfileDrag,onProfileZoom,onHdrWmDrag,onHdrWmZoom,onHdrTextDrag,onHlDrag,onLogoDrag,onLogoZoom,onTopHChange,onBotHChange,onFooterTDrag,onProfileGDrag,onContentDrag,onLogoGDrag,onSet}){
   const c=mkTheme(ck,sk,hue);const topImgs=d.topImages||[],botImgs=d.botImages||[];
   const TOP_H=d.topImgH||300, BOT_H=d.botImgH||240;
   const [topActive,setTopActive]=useState(false);
@@ -422,8 +438,7 @@ const stripDef=null;
     return`saturate(${s.toFixed(3)}) contrast(${cont.toFixed(3)})`;
   };
   const bf=(brightness!==100||saturation!==100||vibrance!==100)?`brightness(${brightness/100}) saturate(${saturation/100}) ${vibranceF(vibrance)}`.trim():undefined;
-  const stripTopBf=(stripTopHue!==0||stripTopBrt!==100||stripTopSat!==100||stripTopVib!==100)?`hue-rotate(${stripTopHue}deg) brightness(${stripTopBrt/100}) saturate(${stripTopSat/100}) ${vibranceF(stripTopVib)}`.trim():undefined;
-  const stripBotBf=(stripBotHue!==0||stripBotBrt!==100||stripBotSat!==100||stripBotVib!==100)?`hue-rotate(${stripBotHue}deg) brightness(${stripBotBrt/100}) saturate(${stripBotSat/100}) ${vibranceF(stripBotVib)}`.trim():undefined;
+  const stripBf=(stripHue!==0||stripBrt!==100||stripSat!==100||stripVib!==100)?`hue-rotate(${stripHue}deg) brightness(${stripBrt/100}) saturate(${stripSat/100}) ${vibranceF(stripVib)}`.trim():undefined;
 
   /* Style-specific header decorations */
   const hdrDecos=()=>{
@@ -483,56 +498,90 @@ const stripDef=null;
 };
 
   return(
-    <div id={id} style={{width:794,height:1123,background:"#fff",fontFamily:"'Sarabun',sans-serif",position:"relative",overflow:"hidden",boxSizing:"border-box",backgroundImage:showBgPat?bg:"none",backgroundSize:bgSz}}>
+    <div id={id} style={{width:794,height:1123,background:"#fff",fontFamily:"'Sarabun',sans-serif",position:"relative",overflow:"hidden",boxSizing:"border-box",backgroundImage:bg,backgroundSize:bgSz}}>
       {/* Corners */}
       {cornerSrc&&<div style={{position:"absolute",inset:0,zIndex:0,pointerEvents:"none"}}>
         <FI src={cornerSrc} w={80} h={80} style={{top:HEADER_H+sH+4,left:4}}/><FI src={cornerSrc} w={80} h={80} style={{top:HEADER_H+sH+4,right:4,transform:"scaleX(-1)"}}/><FI src={cornerSrc} w={80} h={80} style={{bottom:FOOTER_H+sH+4,left:4,transform:"scaleY(-1)"}}/><FI src={cornerSrc} w={80} h={80} style={{bottom:FOOTER_H+sH+4,right:4,transform:"scale(-1,-1)"}}/>
       </div>}
 
       {/* HEADER */}
-      <div style={{height:HEADER_H,position:"relative",overflow:"hidden",zIndex:['profile-g','profile-img','hdr-text','hdrwm'].includes(selectedEl)?100:1}}>
+      <div style={{height:HEADER_H,position:"relative",overflow:"hidden"}}>
         {showHdrBg&&<div style={{position:"absolute",inset:0,background:c.hdr,filter:bf}}/>}
-        {showBgPat&&<div style={{position:"absolute",inset:0,backgroundImage:getStyleBg(sk,"#ffffff",0.08),backgroundSize:getStyleBgSize(sk)}}/>}
-        {headerWm&&<CropImg src={headerWm} pos={headerWmPos} zoom={headerWmZoom} onDrag={onHdrWmDrag||null} onZoom={onHdrWmZoom||null} selId="hdrwm" isSelected={selectedEl==="hdrwm"} style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",opacity:headerWmOp/100,zIndex:0}}/>}
+        {showBgPat&&<div style={{position:"absolute",inset:0,backgroundImage:getStyleBg(sk,"#ffffff",0.025),backgroundSize:getStyleBgSize(sk)}}/>}
+        {headerWm&&<CropImg src={headerWm} pos={headerWmPos} zoom={headerWmZoom} onDrag={onHdrWmDrag||null} onZoom={onHdrWmZoom||null} style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",opacity:headerWmOp/100,zIndex:0}}/>}
         {sk!=="minimal"&&<><div style={{position:"absolute",top:-40,right:-40,width:160,height:160,borderRadius:sk==="retro"?"10%":"50%",background:"rgba(255,255,255,.06)"}}/><div style={{position:"absolute",bottom:-30,left:"35%",width:120,height:120,borderRadius:sk==="retro"?"10%":"50%",background:"rgba(255,255,255,.04)"}}/></>}
+        {/* Logo U-shape */}
+                {d.logos&&d.logos.length>0&&(()=>{const lgRef=React.useRef(null);const [lgOp,setLgOp]=React.useState(1);const lgXR=React.useRef(logoGX);const lgYR=React.useRef(logoGY);lgXR.current=logoGX;lgYR.current=logoGY;const onLGD=(e)=>{if(!onLogoGDrag)return;const sx=e.touches?e.touches[0].clientX:e.clientX;const sy=e.touches?e.touches[0].clientY:e.clientY;lgRef.current=setTimeout(()=>{setLgOp(0.5);let lx=sx,ly=sy;const mv=(ev)=>{ev.preventDefault();const cx=ev.touches?ev.touches[0].clientX:ev.clientX;const cy=ev.touches?ev.touches[0].clientY:ev.clientY;onLogoGDrag(Math.round(lgXR.current+(cx-lx)/scale),Math.round(lgYR.current+(cy-ly)/scale));lx=cx;ly=cy;};const up=()=>{setLgOp(1);lgRef.current=null;window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);window.removeEventListener("touchmove",mv);window.removeEventListener("touchend",up);};window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);window.addEventListener("touchmove",mv,{passive:false});window.addEventListener("touchend",up);},3000);const cancel=()=>{if(lgRef.current){clearTimeout(lgRef.current);lgRef.current=null;}};window.addEventListener("mouseup",cancel,{once:true});window.addEventListener("touchend",cancel,{once:true});};return(<div onMouseDown={onLogoGDrag?onLGD:undefined} onTouchStart={onLogoGDrag?onLGD:undefined} style={{position:"absolute",top:logoGY,right:10-logoGX,zIndex:2,display:"flex",gap:4,opacity:lgOp,transition:"opacity .3s",touchAction:"none",userSelect:"none",cursor:onLogoGDrag?"grab":"default"}}>
+          {d.logos.map((lg,i)=>{const lo=typeof lg==="string"?{url:lg,pos:"50% 50%",zoom:100}:lg;const ls=d.logoSize||42;const cw=ls+10,ch=ls+14;return(<div key={i} style={{width:cw,height:ch,borderRadius:showLogoBg?`0 0 ${cw/2}px ${cw/2}px`:"0",background:showLogoBg?"rgba(255,255,255,0.3)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",paddingTop:showLogoBg?3:0}}><div style={{width:ls,height:ls,borderRadius:"50%",overflow:"hidden"}}><CropImg src={lo.url} pos={lo.pos} zoom={lo.zoom} onDrag={onLogoDrag?p=>onLogoDrag(i,p):null} onZoom={onLogoZoom?z=>onLogoZoom(i,z):null} style={{width:"100%",height:"100%",borderRadius:"50%"}}/></div></div>)})}
+        </div>);})()}
         {/* Text */}
         <div
           onMouseDown={onHdrTextDrag?(e)=>{e.preventDefault();const sx=e.clientX;const sy=e.clientY;const ox=hdrTextX;const oy=hdrTextY;const mv=(ev)=>{ev.preventDefault();onHdrTextDrag(Math.round(ox+(ev.clientX-sx)/scale),Math.round(oy+(ev.clientY-sy)/scale));};const up=()=>{window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up)};window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);}:undefined}
-          onTouchStart={onHdrTextDrag?(e)=>{if(selectedEl!=="hdr-text")return;e.preventDefault();const sx=e.touches[0].clientX;const sy=e.touches[0].clientY;const ox=hdrTextX;const oy=hdrTextY;const mv=(ev)=>{ev.preventDefault();onHdrTextDrag(Math.round(ox+(ev.touches[0].clientX-sx)/scale),Math.round(oy+(ev.touches[0].clientY-sy)/scale));};const up=()=>{window.removeEventListener("touchmove",mv);window.removeEventListener("touchend",up)};window.addEventListener("touchmove",mv,{passive:false});window.addEventListener("touchend",up);}:undefined}
-          data-selid="hdr-text"
-          style={{position:"absolute",top:12+hdrTextY,left:(d.profileSize||116)+60+hdrTextX,right:Math.max(0,20-hdrTextX),zIndex:2,cursor:onHdrTextDrag&&selectedEl==="hdr-text"?"move":"default",userSelect:"none",touchAction:"auto",outline:selectedEl==="hdr-text"?"2.5px dashed rgba(56,210,110,0.9)":"none",outlineOffset:"6px",filter:selectedEl==="hdr-text"?"drop-shadow(0 0 6px rgba(56,210,110,0.6))":"none"}}>
-          <div style={{fontFamily:"'Kanit',sans-serif",fontSize:d.headerTitleSize||38,fontWeight:700,color:d.headerTitleColor||"#fff",textShadow:"2px 3px 6px rgba(0,0,0,.25)",letterSpacing:4,whiteSpace:"nowrap"}}>{d.headerTitle||"ประชาสัมพันธ์"}</div>
-          <div style={{fontFamily:"'Kanit',sans-serif",fontSize:d.fsOrgName||28,fontWeight:500,color:d.tcOrgName||"#fff",opacity:.95,marginTop:2,lineHeight:1.3,whiteSpace:"nowrap"}}>{d.orgName||"ชื่อหน่วยงาน"}</div>
-          {d.subOrg&&<div style={{fontFamily:"'Kanit',sans-serif",fontSize:d.fsSubOrg||24,color:d.tcSubOrg||"#fff",opacity:.8,marginTop:1,lineHeight:1.3,whiteSpace:"nowrap"}}>{d.subOrg}</div>}
+          onTouchStart={onHdrTextDrag?(e)=>{e.preventDefault();const sx=e.touches[0].clientX;const sy=e.touches[0].clientY;const ox=hdrTextX;const oy=hdrTextY;const mv=(ev)=>{ev.preventDefault();onHdrTextDrag(Math.round(ox+(ev.touches[0].clientX-sx)/scale),Math.round(oy+(ev.touches[0].clientY-sy)/scale));};const up=()=>{window.removeEventListener("touchmove",mv);window.removeEventListener("touchend",up)};window.addEventListener("touchmove",mv,{passive:false});window.addEventListener("touchend",up);}:undefined}
+          style={{position:"absolute",top:12+hdrTextY,left:(d.profileSize||116)+60+hdrTextX,right:Math.max(0,((d.logoSize||42)+16)*(d.logos?.length||0)+20-hdrTextX),zIndex:2,cursor:onHdrTextDrag?"move":"default",userSelect:"none",touchAction:"none"}}>
+          <div contentEditable={!!onSet} suppressContentEditableWarning={true} onBlur={onSet?(e)=>onSet("headerTitle",e.target.innerText.trim()||"ประชาสัมพันธ์"):undefined} style={{fontFamily:"'Kanit',sans-serif",fontSize:d.headerTitleSize||38,fontWeight:700,color:d.headerTitleColor||"#fff",textShadow:"2px 3px 6px rgba(0,0,0,.25)",letterSpacing:4,whiteSpace:"nowrap",outline:"none",cursor:onSet?"text":"inherit",minWidth:40}}>{d.headerTitle||"ประชาสัมพันธ์"}</div>
+          <div contentEditable={!!onSet} suppressContentEditableWarning={true} onBlur={onSet?(e)=>onSet("orgName",e.target.innerText.trim()||"ชื่อหน่วยงาน"):undefined} style={{fontFamily:"'Kanit',sans-serif",fontSize:d.fsOrgName||28,fontWeight:500,color:d.tcOrgName||"#fff",opacity:.95,marginTop:2,lineHeight:1.3,whiteSpace:"nowrap",outline:"none",cursor:onSet?"text":"inherit",minWidth:40}}>{d.orgName||"ชื่อหน่วยงาน"}</div>
+          {d.subOrg&&<div contentEditable={!!onSet} suppressContentEditableWarning={true} onBlur={onSet?(e)=>onSet("subOrg",e.target.innerText.trim()):undefined} style={{fontFamily:"'Kanit',sans-serif",fontSize:d.fsSubOrg||24,color:d.tcSubOrg||"#fff",opacity:.8,marginTop:1,lineHeight:1.3,whiteSpace:"nowrap",outline:"none",cursor:onSet?"text":"inherit"}}>{d.subOrg}</div>}
         </div>
         {/* Profile U-shape — 3s long-press drag */}
-        {(()=>{const ps=d.profileSize||116;const uw=ps+20,uh=ps+22;const [pgOp,setPgOp]=React.useState(1);const pgXR=React.useRef(profileGX);const pgYR=React.useRef(profileGY);pgXR.current=profileGX;pgYR.current=profileGY;const pgSel=selectedEl==="profile-g";const onPGD=(e)=>{if(!onProfileGDrag)return;if(e.touches&&!pgSel)return;e.preventDefault();e.stopPropagation();let lx=e.touches?e.touches[0].clientX:e.clientX,ly=e.touches?e.touches[0].clientY:e.clientY;setPgOp(0.6);const mv=(ev)=>{ev.preventDefault();const cx=ev.touches?ev.touches[0].clientX:ev.clientX;const cy=ev.touches?ev.touches[0].clientY:ev.clientY;onProfileGDrag(Math.round(pgXR.current+(cx-lx)/scale),Math.round(pgYR.current+(cy-ly)/scale));lx=cx;ly=cy;};const up=()=>{setPgOp(1);window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);window.removeEventListener("touchmove",mv);window.removeEventListener("touchend",up);};window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);window.addEventListener("touchmove",mv,{passive:false});window.addEventListener("touchend",up);};return(
-                <div data-selid="profile-g" onMouseDown={onProfileGDrag?onPGD:undefined} onTouchStart={onProfileGDrag?onPGD:undefined} style={{position:"absolute",top:profileGY,left:20+profileGX,zIndex:2,display:"flex",flexDirection:"column",alignItems:"center",opacity:pgOp,transition:"opacity .3s",touchAction:"auto",userSelect:"none",cursor:onProfileGDrag&&pgSel?"grab":"default",outline:pgSel?"2.5px dashed rgba(56,210,110,0.9)":"none",outlineOffset:"6px",filter:pgSel?"drop-shadow(0 0 8px rgba(56,210,110,0.6))":"none"}}>
+        {(()=>{const ps=d.profileSize||116;const uw=ps+20,uh=ps+22;const pgRef=React.useRef(null);const [pgOp,setPgOp]=React.useState(1);const pgXR=React.useRef(profileGX);const pgYR=React.useRef(profileGY);pgXR.current=profileGX;pgYR.current=profileGY;const onPGD=(e)=>{if(!onProfileGDrag)return;const sx=e.touches?e.touches[0].clientX:e.clientX;const sy=e.touches?e.touches[0].clientY:e.clientY;pgRef.current=setTimeout(()=>{setPgOp(0.5);let lx=sx,ly=sy;const mv=(ev)=>{ev.preventDefault();const cx=ev.touches?ev.touches[0].clientX:ev.clientX;const cy=ev.touches?ev.touches[0].clientY:ev.clientY;onProfileGDrag(Math.round(pgXR.current+(cx-lx)/scale),Math.round(pgYR.current+(cy-ly)/scale));lx=cx;ly=cy;};const up=()=>{setPgOp(1);pgRef.current=null;window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);window.removeEventListener("touchmove",mv);window.removeEventListener("touchend",up);};window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);window.addEventListener("touchmove",mv,{passive:false});window.addEventListener("touchend",up);},3000);const cancel=()=>{if(pgRef.current){clearTimeout(pgRef.current);pgRef.current=null;}};window.addEventListener("mouseup",cancel,{once:true});window.addEventListener("touchend",cancel,{once:true});};return(
+                <div onMouseDown={onProfileGDrag?onPGD:undefined} onTouchStart={onProfileGDrag?onPGD:undefined} style={{position:"absolute",top:profileGY,left:20+profileGX,zIndex:2,display:"flex",flexDirection:"column",alignItems:"center",opacity:pgOp,transition:"opacity .3s",touchAction:"none",userSelect:"none",cursor:onProfileGDrag?"grab":"default"}}>
           <div style={{width:uw,height:uh,borderRadius:showProfileBg&&d.profileUrl?c.sp.uShape:"0",background:showProfileBg&&d.profileUrl?"rgba(255,255,255,0.3)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",paddingTop:showProfileBg&&d.profileUrl?8:0}}>
-            {d.profileUrl&&<div style={{width:ps,height:ps,borderRadius:c.sp.profR,border:"4px solid rgba(255,255,255,.55)",overflow:"hidden",boxShadow:"0 6px 20px rgba(0,0,0,.3)"}}><CropImg src={d.profileUrl} pos={d.profilePos||"50% 50%"} zoom={d.profileZoom||100} onDrag={onProfileDrag||null} onZoom={onProfileZoom||null} selId="profile-img" isSelected={selectedEl==="profile-img"} style={{width:"100%",height:"100%",borderRadius:c.sp.profR,backgroundColor:"rgba(255,255,255,.12)"}}/></div>}
+            {d.profileUrl&&<div style={{width:ps,height:ps,borderRadius:c.sp.profR,border:"4px solid rgba(255,255,255,.55)",overflow:"hidden",boxShadow:"0 6px 20px rgba(0,0,0,.3)"}}><CropImg src={d.profileUrl} pos={d.profilePos||"50% 50%"} zoom={d.profileZoom||100} onDrag={onProfileDrag||null} onZoom={onProfileZoom||null} style={{width:"100%",height:"100%",borderRadius:c.sp.profR,backgroundColor:"rgba(255,255,255,.12)"}}/></div>}
           </div>
-          <div style={{textAlign:"center",marginTop:4,fontFamily:"'Kanit',sans-serif",fontSize:d.fsPersonName||19,fontWeight:600,color:d.tcPersonName||"#ffeaa7"}}>{d.personName||""}</div>
-          <div style={{textAlign:"center",fontFamily:"'Sarabun',sans-serif",fontSize:d.fsPersonTitle||12,fontWeight:500,color:d.tcPersonTitle||"rgba(255,255,255,.85)",maxWidth:ps+24,whiteSpace:"pre-line"}}>{d.personTitle||""}</div>
+          <div contentEditable={!!onSet} suppressContentEditableWarning={true} onBlur={onSet?(e)=>onSet("personName",e.target.innerText.trim()):undefined} style={{textAlign:"center",marginTop:4,fontFamily:"'Kanit',sans-serif",fontSize:d.fsPersonName||19,fontWeight:600,color:d.tcPersonName||"#ffeaa7",outline:"none",cursor:onSet?"text":"inherit",minWidth:20}}>{d.personName||""}</div>
+          <div contentEditable={!!onSet} suppressContentEditableWarning={true} onBlur={onSet?(e)=>onSet("personTitle",e.target.innerText.trim()):undefined} style={{textAlign:"center",fontFamily:"'Sarabun',sans-serif",fontSize:d.fsPersonTitle||12,fontWeight:500,color:d.tcPersonTitle||"rgba(255,255,255,.85)",maxWidth:ps+24,whiteSpace:"pre-line",outline:"none",cursor:onSet?"text":"inherit"}}>{d.personTitle||""}</div>
         </div>)})()}
+        {/* FIX: Headline — draggable, bold, background follows */}
+         {(()=>{const hs=c.sp.hlStyle;const hlLeft=(d.profileSize||116)+60;
+          const hlOffX=d.hlOffX||0;const hlOffY=d.hlOffY||0;
+          const base={position:"absolute",bottom:55+hlOffY,left:hlLeft+hlOffX,display:"flex",justifyContent:"center",zIndex:2,overflow:"visible",
+            cursor:onHlDrag?"move":"default",userSelect:"none",touchAction:"none"};
+          const makeDrag=(e)=>{
+            if(!onHlDrag)return;
+            e.preventDefault();e.stopPropagation();
+            const sx=e.touches?e.touches[0].clientX:e.clientX;
+            const sy=e.touches?e.touches[0].clientY:e.clientY;
+            const ox=hlOffX,oy=hlOffY;
+            const mv=(ev)=>{ev.preventDefault();
+              const cx=ev.touches?ev.touches[0].clientX:ev.clientX;
+              const cy=ev.touches?ev.touches[0].clientY:ev.clientY;
+              onHlDrag(Math.round(ox+(cx-sx)/scale),Math.round(oy-(cy-sy)/scale));
+            };
+            const up=()=>{window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);window.removeEventListener("touchmove",mv);window.removeEventListener("touchend",up)};
+            window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);
+            window.addEventListener("touchmove",mv,{passive:false});window.addEventListener("touchend",up);
+          };
+          const capsule={borderRadius:c.sp.hlR,padding:"6px 6px",position:"relative",display:"inline-block",maxWidth:"80%"};
+          const hlS=hs==="border"?{...capsule,backdropFilter:"blur(4px)",boxShadow:`0 4px 16px rgba(0,0,0,.18), 0 2px 8px ${c.ac}30`}:hs==="flat"?{...capsule,boxShadow:"0 4px 12px rgba(0,0,0,.12)"}:hs==="glow"?{...capsule,boxShadow:`0 4px 20px ${c.ac}40, 0 0 40px ${c.ac}15, 0 2px 8px rgba(0,0,0,.2)`}:{...capsule,boxShadow:`0 4px 16px rgba(0,0,0,.18), 0 2px 8px ${c.ac}25`};
+          const bgC=d.hlBgColor||(hs==="border"?"rgba(255,255,255,0.2)":c.hlBg);
+          const txtC=d.hlColor||(hs==="border"?"#fff":c.hlTxt);
+          return<div style={base} onMouseDown={onHlDrag?makeDrag:undefined} onTouchStart={onHlDrag?makeDrag:undefined}>
+            <div style={hlS}>
+              <div style={{position:"absolute",inset:0,background:bgC,filter:bf,borderRadius:c.sp.hlR}}/>
+              <div contentEditable={!!onSet} suppressContentEditableWarning={true} onBlur={onSet?(e)=>onSet("headline",e.target.innerText.trim()||"หัวข้อข่าวประชาสัมพันธ์"):undefined} style={{position:"relative",fontFamily:"'Kanit',sans-serif",fontSize:d.fsHeadline||14,fontWeight:700,color:txtC,lineHeight:1.55,textAlign:"center",overflow:"hidden",whiteSpace:"pre",outline:"none",cursor:onSet?"text":"inherit",minWidth:40}}>{d.headline||"หัวข้อข่าวประชาสัมพันธ์"}</div>
+            </div>
+          </div>;
+        })()}
         {/* Decorations z:1 — style-specific */}
-        {showBgPat&&<div style={{position:"absolute",inset:0,zIndex:1,pointerEvents:"none"}}>{hdrDecos()}</div>}
+        <div style={{position:"absolute",inset:0,zIndex:1,pointerEvents:"none"}}>{hdrDecos()}</div>
       </div>
 
       {/* CONTENT — no spacer, strip SVG overlaps seam */}
-      <div style={{height:contentH,position:"relative",overflow:"hidden",zIndex:(selectedEl==='content'||selectedEl?.startsWith('img-'))?100:5}}>
+      <div style={{height:contentH,position:"relative",overflow:"hidden"}}>
         {showBodyBg&&<div style={{position:"absolute",inset:0,background:c.cbg,filter:bf}}/>}
-        {showBgPat&&<div style={{position:"absolute",inset:0,backgroundImage:getStyleBg(sk,"#ffffff",0.08),backgroundSize:getStyleBgSize(sk)}}/>}
+        {showBgPat&&<div style={{position:"absolute",inset:0,backgroundImage:getStyleBg(sk,"#ffffff",0.03),backgroundSize:getStyleBgSize(sk)}}/>}
         {/* Decoration layer z:0 — style-specific */}
-        {showBgPat&&<div style={{position:"absolute",inset:0,zIndex:0,pointerEvents:"none",overflow:"hidden"}}>{contentDecos()}</div>}
+        <div style={{position:"absolute",inset:0,zIndex:0,pointerEvents:"none",overflow:"hidden"}}>{contentDecos()}</div>
         {/* Content layer z:1 — 3s long-press drag */}
-        {(()=>{const [ctOp,setCtOp]=React.useState(1);const ctXR=React.useRef(contentOX);const ctYR=React.useRef(contentOY);ctXR.current=contentOX;ctYR.current=contentOY;const ctSel=selectedEl==="content";const onCTD=(e)=>{if(!onContentDrag)return;if(e.touches&&!ctSel)return;e.preventDefault();e.stopPropagation();let lx=e.touches?e.touches[0].clientX:e.clientX,ly=e.touches?e.touches[0].clientY:e.clientY;setCtOp(0.6);const mv=(ev)=>{ev.preventDefault();const cx=ev.touches?ev.touches[0].clientX:ev.clientX;const cy=ev.touches?ev.touches[0].clientY:ev.clientY;onContentDrag(Math.round(ctXR.current+(cx-lx)/scale),Math.round(ctYR.current+(cy-ly)/scale));lx=cx;ly=cy;};const up=()=>{setCtOp(1);window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);window.removeEventListener("touchmove",mv);window.removeEventListener("touchend",up);};window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);window.addEventListener("touchmove",mv,{passive:false});window.addEventListener("touchend",up);};return(
-        <div data-selid="content" onMouseDown={onContentDrag?onCTD:undefined} onTouchStart={onContentDrag?onCTD:undefined} style={{position:"relative",zIndex:1,padding:"40px 20px 0",transform:`translate(${Math.round(contentOX)}px,${Math.round(contentOY)}px)`,opacity:ctOp,transition:"opacity .3s",touchAction:"auto",userSelect:"none",outline:ctSel?"2.5px dashed rgba(56,210,110,0.9)":"none",outlineOffset:"8px",filter:ctSel?"drop-shadow(0 0 8px rgba(56,210,110,0.5))":"none"}}>
+        {(()=>{const ctRef=React.useRef(null);const [ctOp,setCtOp]=React.useState(1);const ctXR=React.useRef(contentOX);const ctYR=React.useRef(contentOY);ctXR.current=contentOX;ctYR.current=contentOY;const onCTD=(e)=>{if(!onContentDrag)return;const sx=e.touches?e.touches[0].clientX:e.clientX;const sy=e.touches?e.touches[0].clientY:e.clientY;ctRef.current=setTimeout(()=>{setCtOp(0.5);let lx=sx,ly=sy;const mv=(ev)=>{ev.preventDefault();const cx=ev.touches?ev.touches[0].clientX:ev.clientX;const cy=ev.touches?ev.touches[0].clientY:ev.clientY;onContentDrag(Math.round(ctXR.current+(cx-lx)/scale),Math.round(ctYR.current+(cy-ly)/scale));lx=cx;ly=cy;};const up=()=>{setCtOp(1);ctRef.current=null;window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);window.removeEventListener("touchmove",mv);window.removeEventListener("touchend",up);};window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);window.addEventListener("touchmove",mv,{passive:false});window.addEventListener("touchend",up);},3000);const cancel=()=>{if(ctRef.current){clearTimeout(ctRef.current);ctRef.current=null;}};window.addEventListener("mouseup",cancel,{once:true});window.addEventListener("touchend",cancel,{once:true});};return(
+        <div onMouseDown={onContentDrag?onCTD:undefined} onTouchStart={onContentDrag?onCTD:undefined} style={{position:"relative",zIndex:1,padding:"40px 20px 0",transform:`translate(${Math.round(contentOX)}px,${Math.round(contentOY)}px)`,opacity:ctOp,transition:"opacity .3s",touchAction:"none",userSelect:"none"}}>
           <div style={{display:"flex",flexDirection:"column",background:"#ffffffb3",borderRadius:c.sp.contR,padding:"10px 14px 6px",boxShadow:`0 8px 32px ${c.ac}15`,border:"1px solid rgba(255,255,255,0.5)"}}>
 
             {/* ── TOP IMAGES ── */}
             {topImgs.length>0&&(()=>{
               const imgS={borderRadius:c.sp.imgR,border:`1px solid ${c.ac}20`,boxShadow:"0 2px 8px rgba(0,0,0,0.10)"};
-              const crop=(img,ri,st)=><CropImg src={img.url} pos={img.pos} zoom={img.zoom||100} onDrag={onImgDrag?p=>onImgDrag("top",ri,p):null} onZoom={onImgZoom?z=>onImgZoom("top",ri,z):null} selId={`img-top-${ri}`} isSelected={selectedEl===`img-top-${ri}`} style={{...imgS,...st}}/>;
+              const crop=(img,ri,st)=><CropImg src={img.url} pos={img.pos} zoom={img.zoom||100} onDrag={onImgDrag?p=>onImgDrag("top",ri,p):null} onZoom={onImgZoom?z=>onImgZoom("top",ri,z):null} style={{...imgS,...st}}/>;
               const mr=d.topMainRatio||2;
               const ss=Math.min(0.7,Math.max(0.3,d.topSideSplit||0.5));
               return(<>
@@ -553,9 +602,9 @@ const stripDef=null;
                     data-drag-handle="1"
                     style={{position:"absolute",bottom:-14,left:"50%",transform:"translateX(-50%)",height:28,width:72,cursor:"ns-resize",display:"flex",alignItems:"center",justifyContent:"center",userSelect:"none",zIndex:20,touchAction:"none"}}>
                     <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:0,background:topActive?"rgba(0,0,0,0.22)":"rgba(0,0,0,0.08)",borderRadius:12,padding:"3px 16px",transition:"background .15s",boxShadow:"0 2px 6px rgba(0,0,0,0.15)"}}>
-                      <span style={{fontSize:12,lineHeight:1,color:topActive?c.ac:"rgba(0,0,0,0.35)",transition:"color .15s"}}>▲</span>
+                      <span style={{fontSize:10,lineHeight:1,color:topActive?c.ac:"rgba(0,0,0,0.35)",transition:"color .15s"}}>▲</span>
                       <div style={{width:24,height:2,borderRadius:1,background:topActive?c.ac+"90":"rgba(0,0,0,0.2)",margin:"1px 0"}}/>
-                      <span style={{fontSize:12,lineHeight:1,color:topActive?c.ac:"rgba(0,0,0,0.35)",transition:"color .15s"}}>▼</span>
+                      <span style={{fontSize:10,lineHeight:1,color:topActive?c.ac:"rgba(0,0,0,0.35)",transition:"color .15s"}}>▼</span>
                     </div>
                   </div>}
                 </div>
@@ -568,9 +617,9 @@ const stripDef=null;
             {/* ── TEXT BLOCK — height auto, fills only lines present ── */}
             <div style={{flexShrink:0,padding:"0 12px 2px"}}>
               <div style={{borderLeft:`${c.sp.bodyBorder} ${c.ac}`,paddingLeft:16}}>
-                {d.dateText&&<div style={{fontSize:d.fsDateText||18,fontWeight:600,color:d.tcDateText||c.ac,marginBottom:4,fontFamily:"'Kanit',sans-serif"}}>{d.dateText}</div>}
-                <div style={{fontSize:d.fsBodyText||17,lineHeight:1.8,color:d.tcBodyText||"#1a1a2e"}}>
-                  {(d.bodyText||"เนื้อหาจดหมายข่าว...Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat..").split("\n").map((line,i,arr)=><div key={i} style={bodyStyle(line,i,arr)}>{line||"\u00A0"}</div>)}
+                {d.dateText&&<div contentEditable={!!onSet} suppressContentEditableWarning={true} onBlur={onSet?(e)=>onSet("dateText",e.target.innerText.trim()):undefined} style={{fontSize:d.fsDateText||18,fontWeight:600,color:d.tcDateText||c.ac,marginBottom:4,fontFamily:"'Kanit',sans-serif",outline:"none",cursor:onSet?"text":"inherit"}}>{d.dateText}</div>}
+                <div contentEditable={!!onSet} suppressContentEditableWarning={true} onBlur={onSet?(e)=>onSet("bodyText",e.target.innerText):undefined} style={{fontSize:d.fsBodyText||17,lineHeight:1.8,color:d.tcBodyText||"#1a1a2e",outline:"none",cursor:onSet?"text":"inherit"}}>
+                  {(d.bodyText||"เนื้อหาจดหมายข่าว...Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat..\nLorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.").split("\n").map((line,i,arr)=><div key={i} style={bodyStyle(line,i,arr)}>{line||"\u00A0"}</div>)}
                 </div>
               </div>
             </div>
@@ -581,7 +630,7 @@ const stripDef=null;
             {/* ── BOTTOM IMAGES ── */}
             {botImgs.length>0&&(()=>{
               const imgS={borderRadius:c.sp.imgR,border:`1px solid ${c.ac}20`,boxShadow:"0 2px 6px rgba(0,0,0,0.06)"};
-              const crop=(img,ri,st)=><CropImg key={ri} src={img.url} pos={img.pos} zoom={img.zoom||100} onDrag={onImgDrag?p=>onImgDrag("bot",ri,p):null} onZoom={onImgZoom?z=>onImgZoom("bot",ri,z):null} selId={`img-bot-${ri}`} isSelected={selectedEl===`img-bot-${ri}`} style={{...imgS,...st}}/>;
+              const crop=(img,ri,st)=><CropImg key={ri} src={img.url} pos={img.pos} zoom={img.zoom||100} onDrag={onImgDrag?p=>onImgDrag("bot",ri,p):null} onZoom={onImgZoom?z=>onImgZoom("bot",ri,z):null} style={{...imgS,...st}}/>;
               const n=botImgs.length;
               const cols=n<=2?n:(d.botCols===2?2:3);
               const rowSplit=Math.min(0.65,Math.max(0.35,d.botRowSplit||0.5));
@@ -598,9 +647,9 @@ const stripDef=null;
                     data-drag-handle="1"
                     style={{position:"absolute",top:-14,left:"50%",transform:"translateX(-50%)",height:28,width:72,cursor:"ns-resize",display:"flex",alignItems:"center",justifyContent:"center",userSelect:"none",zIndex:20,touchAction:"none"}}>
                     <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:0,background:botActive?"rgba(0,0,0,0.22)":"rgba(0,0,0,0.08)",borderRadius:12,padding:"3px 16px",transition:"background .15s",boxShadow:"0 2px 6px rgba(0,0,0,0.15)"}}>
-                      <span style={{fontSize:12,lineHeight:1,color:botActive?c.ac:"rgba(0,0,0,0.35)",transition:"color .15s"}}>▲</span>
+                      <span style={{fontSize:10,lineHeight:1,color:botActive?c.ac:"rgba(0,0,0,0.35)",transition:"color .15s"}}>▲</span>
                       <div style={{width:24,height:2,borderRadius:1,background:botActive?c.ac+"90":"rgba(0,0,0,0.2)",margin:"1px 0"}}/>
-                      <span style={{fontSize:12,lineHeight:1,color:botActive?c.ac:"rgba(0,0,0,0.35)",transition:"color .15s"}}>▼</span>
+                      <span style={{fontSize:10,lineHeight:1,color:botActive?c.ac:"rgba(0,0,0,0.35)",transition:"color .15s"}}>▼</span>
                     </div>
                   </div>}
                   <div style={{display:"flex",flexDirection:"column",gap:8,height:"100%"}}>
@@ -625,16 +674,6 @@ const stripDef=null;
         const gStrT=g.stripT||""; const gStrB=g.stripB||gStrT;
         const parseStops=(gStr)=>gStr.replace(/linear-gradient\([^,]+,/,'').replace(/\)$/,'').split(',').map(s=>s.trim()).filter(s=>s.startsWith('#')||s.startsWith('rgb'));
         const stopsT=parseStops(gStrT); const stopsB=parseStops(gStrB);
-
-        /* Bake strip-specific hue/brightness/sat into stop colors so export matches preview */
-        const _adjC=(hex,h,b,s,v)=>{
-          if(!hex||!hex.startsWith('#'))return hex;
-          const vs=v===100?1:v>100?1+(v-100)/100*0.75:Math.max(0,1-(100-v)/100*0.7);
-          const[hh,hs,hl]=hex2hsl(hex.slice(0,7));
-          return hsl2hex(((hh+h)%360+360)%360,Math.min(100,Math.max(0,hs*(s/100)*vs)),Math.min(100,Math.max(0,hl*(b/100))));
-        };
-        const adjStopsT=(stripTopHue!==0||stripTopBrt!==100||stripTopSat!==100||stripTopVib!==100)?stopsT.map(c=>_adjC(c,stripTopHue,stripTopBrt,stripTopSat,stripTopVib)):stopsT;
-        const adjStopsB=(stripBotHue!==0||stripBotBrt!==100||stripBotSat!==100||stripBotVib!==100)?stopsB.map(c=>_adjC(c,stripBotHue,stripBotBrt,stripBotSat,stripBotVib)):stopsB;
 
         const figmaRawEntry=FIGMA_STRIPS[sk];
         /* รองรับ string (เดิม) หรือ {top,bot} object (แยกบน/ล่าง) */
@@ -683,8 +722,8 @@ const stripDef=null;
         };
 
         /* ── Built-in SVG mode ── */
-        const makeSvg=(flip,adjStops)=>{
-          const stops=adjStops||(flip?stopsB:stopsT);
+        const makeSvg=(flip)=>{
+          const stops=flip?stopsB:stopsT;
           const sc1=stops[0]||c.h1||c.ac;
           const sc2=stripGradOn?(stops[stops.length-1]||c.fc2):sc1; // solid → สีเดิม ใกล้เคียงทั้งบน-ล่าง
           const scMid=stripGradOn&&stops.length>2?stops[Math.floor(stops.length/2)]:null;
@@ -720,41 +759,30 @@ const stripDef=null;
           ...(!figmaSvgT&&!figmaSvgB&&flip?{transform:"scaleY(-1)"}:{}),
         });
         /* Top strip */
-        const srcT=figmaSvgT?makeFigmaSrc(figmaSvgT,adjStopsT,false):makeSvg(false,adjStopsT);
+        const srcT=figmaSvgT?makeFigmaSrc(figmaSvgT,stopsT,false):makeSvg(false);
         /* Bot strip: ถ้ามี bot SVG แยก → ไม่ flip; ถ้าใช้ top SVG → flip ตามปกติ */
         const srcB=figmaSvgB
-          ?makeFigmaSrc(figmaSvgB,adjStopsB,botIsSeparate?false:true)
-          :makeSvg(true,adjStopsB);
-        const sfTop=bf?{filter:bf}:{};
-        const sfBot=bf?{filter:bf}:{};
-        const mkStripDrag=(onDrag,offY,selId)=>(e)=>{
-          if(!onDrag)return;
-          if(e.touches&&selectedEl!==selId)return;
-          e.preventDefault();e.stopPropagation();
-          const sy=e.touches?e.touches[0].clientY:e.clientY;const oy=offY;
-          const mv=(ev)=>{ev.preventDefault();const cy=ev.touches?ev.touches[0].clientY:ev.clientY;onDrag(Math.round(oy+(cy-sy)/scale));};
-          const up=()=>{window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);window.removeEventListener("touchmove",mv);window.removeEventListener("touchend",up)};
-          window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);window.addEventListener("touchmove",mv,{passive:false});window.addEventListener("touchend",up);
-        };
-        const stTopSel=selectedEl==="strip-top";const stBotSel=selectedEl==="strip-bot";
+          ?makeFigmaSrc(figmaSvgB,stopsB,botIsSeparate?false:true)
+          :makeSvg(true);
+        const sf=stripBf?{filter:stripBf}:(bf?{filter:bf}:{});
         return(<>
-          <div data-selid="strip-top" onMouseDown={mkStripDrag(onStripTopDrag,stripTopOffY,"strip-top")} onTouchStart={mkStripDrag(onStripTopDrag,stripTopOffY,"strip-top")} style={{position:"absolute",top:HEADER_H-offset-31+stripTopOffY,left:-1,width:796,height:stripH,zIndex:stTopSel?9999:10,cursor:onStripTopDrag&&stTopSel?"ns-resize":"default",touchAction:"auto",...sfTop,outline:stTopSel?"2.5px dashed rgba(56,210,110,0.9)":"none",outlineOffset:"2px"}}><img src={srcT} style={{width:"100%",height:"100%",display:"block",pointerEvents:"none"}} alt=""/></div>
-          <div data-selid="strip-bot" onMouseDown={mkStripDrag(onStripBotDrag,stripBotOffY,"strip-bot")} onTouchStart={mkStripDrag(onStripBotDrag,stripBotOffY,"strip-bot")} style={{position:"absolute",bottom:FOOTER_H-offset+31-stripBotOffY,left:-1,width:796,height:stripH,zIndex:stBotSel?9999:10,cursor:onStripBotDrag&&stBotSel?"ns-resize":"default",touchAction:"auto",...sfBot,...(!figmaSvgT&&!figmaSvgB?{transform:"scaleY(-1)"}:{}),outline:stBotSel?"2.5px dashed rgba(56,210,110,0.9)":"none",outlineOffset:"2px"}}><img src={srcB} style={{width:"100%",height:"100%",display:"block",pointerEvents:"none"}} alt=""/></div>
+          <div style={{position:"absolute",top:HEADER_H-offset-31,left:-1,width:796,height:stripH,zIndex:10,...sf}}><img src={srcT} style={{width:"100%",height:"100%",display:"block",pointerEvents:"none"}} alt=""/></div>
+          <div style={{position:"absolute",bottom:FOOTER_H-offset+31,left:-1,width:796,height:stripH,zIndex:10,...sf,...(!figmaSvgT&&!figmaSvgB?{transform:"scaleY(-1)"}:{})}}><img src={srcB} style={{width:"100%",height:"100%",display:"block",pointerEvents:"none"}} alt=""/></div>
         </>);
       })()}
 
       {/* FOOTER */}
-      <div style={{position:"absolute",bottom:0,left:0,right:0,height:FOOTER_H,zIndex:selectedEl==='footer-t'?100:undefined}}><div style={{height:FOOTER_H,display:"flex",flexDirection:"column",fontSize:14,color:"#fff",position:"relative",padding:"0 16px"}}>
+      <div style={{position:"absolute",bottom:0,left:0,right:0,height:FOOTER_H}}><div style={{height:FOOTER_H,display:"flex",flexDirection:"column",fontSize:14,color:"#fff",position:"relative",padding:"0 16px"}}>
         {showFtrBg&&<div style={{position:"absolute",inset:0,background:c.ftrBg,filter:bf}}/>}
-        {showBgPat&&<div style={{position:"absolute",inset:0,backgroundImage:getStyleBg(sk,"#ffffff",0.08),backgroundSize:getStyleBgSize(sk)}}/>}
+        {showBgPat&&<div style={{position:"absolute",inset:0,backgroundImage:getStyleBg(sk,"#ffffff",0.025),backgroundSize:getStyleBgSize(sk)}}/>}
         {/* Contact info — draggable above strip */}
-        {(()=>{const ftSel=selectedEl==="footer-t";const mkFD=(e)=>{if(!onFooterTDrag)return;if(e.touches&&!ftSel)return;e.preventDefault();e.stopPropagation();const sx=e.touches?e.touches[0].clientX:e.clientX;const sy=e.touches?e.touches[0].clientY:e.clientY;const ox=footerTX,oy=footerTY;const mv=(ev)=>{ev.preventDefault();const cx=ev.touches?ev.touches[0].clientX:ev.clientX;const cy=ev.touches?ev.touches[0].clientY:ev.clientY;onFooterTDrag(Math.round(ox+(cx-sx)/scale),Math.round(oy+(cy-sy)/scale));};const up=()=>{window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);window.removeEventListener("touchmove",mv);window.removeEventListener("touchend",up)};window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);window.addEventListener("touchmove",mv,{passive:false});window.addEventListener("touchend",up);};return(
-        <div data-selid="footer-t" onMouseDown={onFooterTDrag?mkFD:undefined} onTouchStart={onFooterTDrag?mkFD:undefined} style={{position:"relative",zIndex:15,flex:1,display:"flex",alignItems:"center",justifyContent:"center",transform:`translate(${footerTX}px,${footerTY}px)`,cursor:onFooterTDrag&&ftSel?"move":"default",touchAction:"auto",userSelect:"none",outline:ftSel?"2.5px dashed rgba(56,210,110,0.9)":"none",outlineOffset:"4px",filter:ftSel?"drop-shadow(0 0 6px rgba(56,210,110,0.6))":"none"}}>
+        {(()=>{const mkFD=(e)=>{if(!onFooterTDrag)return;e.preventDefault();e.stopPropagation();const sx=e.touches?e.touches[0].clientX:e.clientX;const sy=e.touches?e.touches[0].clientY:e.clientY;const ox=footerTX,oy=footerTY;const mv=(ev)=>{ev.preventDefault();const cx=ev.touches?ev.touches[0].clientX:ev.clientX;const cy=ev.touches?ev.touches[0].clientY:ev.clientY;onFooterTDrag(Math.round(ox+(cx-sx)/scale),Math.round(oy+(cy-sy)/scale));};const up=()=>{window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);window.removeEventListener("touchmove",mv);window.removeEventListener("touchend",up)};window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);window.addEventListener("touchmove",mv,{passive:false});window.addEventListener("touchend",up);};return(
+        <div onMouseDown={onFooterTDrag?mkFD:undefined} onTouchStart={onFooterTDrag?mkFD:undefined} style={{position:"relative",zIndex:15,flex:1,display:"flex",alignItems:"center",justifyContent:"center",transform:`translate(${footerTX}px,${footerTY}px)`,cursor:onFooterTDrag?"move":"default",touchAction:"none",userSelect:"none"}}>
           <div style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap",justifyContent:"center"}}>
             {d.qrUrl&&<div style={{width:40,height:40,borderRadius:4,overflow:"hidden",border:"2px solid rgba(255,255,255,.4)",background:"#fff",flexShrink:0}}><img src={d.qrUrl} alt="qr" style={{width:"100%",height:"100%",objectFit:"contain"}}/></div>}
-            {d.website&&<span style={{display:"flex",alignItems:"center",gap:4,fontSize:d.fsWebsite||13,color:d.tcWebsite||"#fff"}}><span style={{color:c.ftrAc}}>🌐</span>{d.website}</span>}
-            {d.address&&<span style={{display:"flex",alignItems:"center",gap:4,fontSize:d.fsAddress||13,color:d.tcAddress||"#fff"}}><span style={{color:c.ftrAc}}>📍</span>{d.address}</span>}
-            {d.phone&&<span style={{display:"flex",alignItems:"center",gap:4,fontSize:d.fsPhone||13,color:d.tcPhone||"#fff"}}><span style={{color:"#fff"}}>📲</span>{d.phone}</span>}
+            {d.website&&<span style={{display:"flex",alignItems:"center",gap:4,fontSize:d.fsWebsite||13,color:d.tcWebsite||"#fff"}}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{color:c.ftrAc,flexShrink:0}}><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>{d.website}</span>}
+            {d.address&&<span style={{display:"flex",alignItems:"center",gap:4,fontSize:d.fsAddress||13,color:d.tcAddress||"#fff"}}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{color:c.ftrAc,flexShrink:0}}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>{d.address}</span>}
+            {d.phone&&<span style={{display:"flex",alignItems:"center",gap:4,fontSize:d.fsPhone||13,color:d.tcPhone||"#fff"}}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{color:"#fff",flexShrink:0}}><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2.22h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.16 6.16l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>{d.phone}</span>}
           </div>
         </div>);})()}
         {/* Made by - absolute bottom right, no QR */}
@@ -762,217 +790,6 @@ const stripDef=null;
           <span style={{fontSize:12,color:"rgba(255,255,255,0.8)",fontFamily:"'Sarabun',sans-serif",fontWeight:400}}>Made by saantie.github.io/newsletter-generator</span>
         </div>}
       </div></div>
-
-      {/* ── DECO IMAGES — drag + pinch resize, z:11-16 ── */}
-      {decoImgs.map((img,i)=>{
-        if(!img||!img.url||!img.visible)return null;
-        const isSel=selectedEl===`deco-${i}`;
-        const mkDrag=(e)=>{
-          if(!onDecoDrag && !onDecoRotate) return;
-          if(!isSel)return; // ต้อง double-click/double-tap เลือกก่อน (ทั้ง mouse และ touch)
-          e.preventDefault();e.stopPropagation();
-          if(e.touches&&e.touches.length>=2)return;
-          const sx=e.touches?e.touches[0].clientX:e.clientX;
-          const sy=e.touches?e.touches[0].clientY:e.clientY;
-
-          // Alt+drag => rotate (mouse only)
-          if(e.altKey && onDecoRotate){
-            const el = e.currentTarget || e.target;
-            const rect = el && el.getBoundingClientRect ? el.getBoundingClientRect() : {left: img.x, top: img.y, width: img.w, height: img.h};
-            const cx = rect.left + rect.width/2;
-            const cy = rect.top + rect.height/2;
-            const startAngle = Math.atan2(sy-cy, sx-cx);
-            const startRot = img.rot||0;
-            const mv=(ev)=>{ev.preventDefault();
-              const mx = ev.touches?ev.touches[0].clientX:ev.clientX;
-              const my = ev.touches?ev.touches[0].clientY:ev.clientY;
-              const ang = Math.atan2(my-cy, mx-cx);
-              const deg = startRot + (ang - startAngle)*180/Math.PI;
-              if(onDecoRotate) onDecoRotate(i, Math.round(deg));
-            };
-            const up=()=>{window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);window.removeEventListener("touchmove",mv);window.removeEventListener("touchend",up);} ;
-            window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);
-            window.addEventListener("touchmove",mv,{passive:false});window.addEventListener("touchend",up);
-            return;
-          }
-
-          const ox=img.x,oy=img.y;
-          const mv=(ev)=>{ev.preventDefault();if(ev.touches&&ev.touches.length>=2)return;
-            const cx=ev.touches?ev.touches[0].clientX:ev.clientX;
-            const cy=ev.touches?ev.touches[0].clientY:ev.clientY;
-            onDecoDrag(i,Math.round(ox+(cx-sx)/scale),Math.round(oy+(cy-sy)/scale));
-          };
-          const up=()=>{window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);window.removeEventListener("touchmove",mv);window.removeEventListener("touchend",up)};
-          window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);
-          window.addEventListener("touchmove",mv,{passive:false});window.addEventListener("touchend",up);
-        };
-        const mkPinch=(e)=>{
-          if(!onDecoResize||!e.touches||e.touches.length<2)return;
-          if(!isSel)return; // touch: ต้อง double-tap เลือกก่อน
-          e.preventDefault();e.stopPropagation();
-          const getDist=t=>Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
-          const getAngle=t=>Math.atan2(t[1].clientY-t[0].clientY,t[1].clientX-t[0].clientX)*180/Math.PI;
-          const startDist=getDist(e.touches);const startW=img.w;const startH=img.h;
-          const startAngle=getAngle(e.touches);const startRot=img.rot||0;
-          const mv=(ev)=>{ev.preventDefault();if(ev.touches.length<2)return;
-            const r=getDist(ev.touches)/startDist;
-            onDecoResize(i,Math.max(20,Math.round(startW*r)),Math.max(20,Math.round(startH*r)));
-            if(onDecoRotate){const dA=getAngle(ev.touches)-startAngle;onDecoRotate(i,startRot+dA);}
-          };
-          const up=()=>{window.removeEventListener("touchmove",mv);window.removeEventListener("touchend",up)};
-          window.addEventListener("touchmove",mv,{passive:false});window.addEventListener("touchend",up);
-        };
-        const handleWheel=(e)=>{
-          // Ctrl/Cmd + wheel => rotate step
-          if((e.ctrlKey||e.metaKey) && onDecoRotate){
-            e.preventDefault();e.stopPropagation();
-            const step = (e.deltaY>0)?-5:5;
-            onDecoRotate(i, Math.round((img.rot||0) + step));
-            return;
-          }
-          if(!onDecoResize) return;
-          e.preventDefault();e.stopPropagation();
-          const f=e.deltaY>0?0.92:1.08;
-          onDecoResize(i,Math.max(20,Math.round(img.w*f)),Math.max(20,Math.round(img.h*f)));
-        };
-        return(
-          <div key={i} data-selid={`deco-${i}`}
-            onMouseDown={mkDrag}
-            onTouchStart={(e)=>{if(e.touches.length>=2)mkPinch(e);else mkDrag(e);}}
-            onWheel={handleWheel}
-            style={{position:"absolute",left:img.x,top:img.y,width:img.w,height:img.h,
-              zIndex:isSel?9999:(img.layer===0?-1:img.layer),touchAction:"none",userSelect:"none",cursor:isSel?"move":"default",
-              boxSizing:"border-box",transform:`rotate(${img.rot||0}deg)`,
-              outline:isSel?"2.5px dashed rgba(56,210,110,0.9)":"none",outlineOffset:"4px",
-              animation:isSel?"selPulse 1.2s ease-in-out infinite":"none",
-              filter:"none"}}
-          >
-            <img src={img.url} style={{width:"100%",height:"100%",objectFit:"contain",pointerEvents:"none",display:"block"}} alt=""/>
-            {isSel&&(
-              <div
-                onMouseDown={(e)=>{
-                  if(!onDecoRotate) return;
-                  e.preventDefault();e.stopPropagation();
-                  const el = e.currentTarget.parentElement;
-                  const rect = el.getBoundingClientRect();
-                  const cx = rect.left + rect.width/2;
-                  const cy = rect.top + rect.height/2;
-                  const startAngle = Math.atan2((e.clientY||e.touches?.[0]?.clientY)-cy, (e.clientX||e.touches?.[0]?.clientX)-cx);
-                  const startRot = img.rot||0;
-                  const mv=(ev)=>{ev.preventDefault();const mx=ev.clientX;const my=ev.clientY;const ang=Math.atan2(my-cy,mx-cx);const deg=startRot+(ang-startAngle)*180/Math.PI;onDecoRotate(i,Math.round(deg));};
-                  const up=()=>{window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up)};
-                  window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);
-                }}
-                onTouchStart={(e)=>{
-                  if(!onDecoRotate) return; if(e.touches.length>1) return; e.preventDefault();e.stopPropagation();
-                  const t=e.touches[0];
-                  const el=e.currentTarget.parentElement;const rect=el.getBoundingClientRect();const cx=rect.left+rect.width/2;const cy=rect.top+rect.height/2;
-                  const startAngle=Math.atan2(t.clientY-cy,t.clientX-cx);const startRot=img.rot||0;
-                  const mv=(ev)=>{ev.preventDefault();if(!ev.touches||ev.touches.length<1)return;const mt=ev.touches[0];const ang=Math.atan2(mt.clientY-cy,mt.clientX-cx);const deg=startRot+(ang-startAngle)*180/Math.PI;onDecoRotate(i,Math.round(deg));};
-                  const up=()=>{window.removeEventListener("touchmove",mv);window.removeEventListener("touchend",up)};
-                  window.addEventListener("touchmove",mv,{passive:false});window.addEventListener("touchend",up);
-                }}
-                title="หมุน"
-                style={{position:"absolute",left:"50%",top:-12,transform:`translateX(-50%) rotate(${-(img.rot||0)}deg)`,width:20,height:20,borderRadius:999,background:"#fff",border:`2px solid ${(c.ac||"#888").slice(0,7)}`,boxShadow:"0 2px 8px rgba(0,0,0,0.12)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"grab",userSelect:"none",zIndex:9999}}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 12a8 8 0 10-2.2 5.2L20 20v-8h-8l2.2 2.2A6 6 0 1118 12" stroke={(c.ac||"#888").slice(0,7)} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              </div>
-            )}
-          </div>
-        );
-      })}
-
-      {/* ── HEADLINE HIGHLIGHT ── */}
-{(() => {
-  const hlX = (d.hlOffX || 0);
-  const hlY = (d.hlOffY || 0);
-  const isSelected = selectedEl === "headline";
-
-  return (
-    <div
-      data-selid="headline"
-      onMouseDown={onHlDrag ? (e) => {
-        e.preventDefault();
-        const startX = e.clientX;
-        const startY = e.clientY;
-        const origX = hlX;
-        const origY = hlY;
-        const move = (ev) => {
-          ev.preventDefault();
-          onHlDrag(
-            Math.round(origX + (ev.clientX - startX) / (scale || 1)),
-            Math.round(origY + (ev.clientY - startY) / (scale || 1))
-          );
-        };
-        const up = () => {
-          window.removeEventListener("mousemove", move);
-          window.removeEventListener("mouseup", up);
-        };
-        window.addEventListener("mousemove", move);
-        window.addEventListener("mouseup", up);
-      } : undefined}
-      onTouchStart={onHlDrag ? (e) => {
-        if (selectedEl !== "headline") return;
-        e.preventDefault();
-        const startX = e.touches[0].clientX;
-        const startY = e.touches[0].clientY;
-        const origX = hlX;
-        const origY = hlY;
-        const move = (ev) => {
-          ev.preventDefault();
-          onHlDrag(
-            Math.round(origX + (ev.touches[0].clientX - startX) / (scale || 1)),
-            Math.round(origY + (ev.touches[0].clientY - startY) / (scale || 1))
-          );
-        };
-        const up = () => {
-          window.removeEventListener("touchmove", move);
-          window.removeEventListener("touchend", up);
-        };
-        window.addEventListener("touchmove", move, { passive: false });
-        window.addEventListener("touchend", up);
-      } : undefined}
-      style={{
-        position: "absolute",
-        top: 138 + hlY,
-        left: 285 + hlX,
-        zIndex: 15,
-        cursor: onHlDrag && isSelected ? "move" : "default",
-        outline: isSelected ? "2.5px dashed rgba(56,210,110,0.9)" : "none",
-        outlineOffset: "8px",
-        filter: isSelected ? "drop-shadow(0 0 8px rgba(56,210,110,0.6))" : "none",
-      }}
-    >
-      <div
-        style={{
-          display: "inline-block",
-          padding: "10px 24px",
-          borderRadius: "14px",
-          background: d.hlBgColor || `linear-gradient(135deg, ${c.ac}ee, ${c.fc2}cc)`,
-          boxShadow: "0 6px 20px rgba(0,0,0,0.28)",
-          maxWidth: "480px",
-          textAlign: "center",
-          position: "relative",
-        }}
-      >
-        <div
-          style={{
-            fontSize: d.fsHeadline || 23,
-            fontWeight: 700,
-            fontFamily: "'Kanit', sans-serif",
-            color: d.hlColor || "#ffffff",
-            lineHeight: 1.4,
-            textShadow: "2px 3px 8px rgba(0,0,0,0.45)",
-            whiteSpace: "pre-line",
-            wordBreak: "break-word",
-          }}
-        >
-          {d.headline || "หัวข้อข่าวประชาสัมพันธ์"}
-        </div>
-      </div>
-    </div>
-  );
-})()}
     </div>
   );
 }
@@ -980,7 +797,7 @@ const stripDef=null;
 /* ─── Form Helpers (Light UI) ─── */
 const Label=({children,c})=><label style={{display:"block",fontSize:12,fontWeight:700,color:c||"#555",marginBottom:4,fontFamily:"'Kanit',sans-serif"}}>{children}</label>;
 /* SzBtn — ปุ่ม +/− ขนาดอักษรขนาดเล็ก วางหลัง ColorPick */
-const SzBtn=({val,def,min=8,max=48,step=1,onChange})=>{const v=val||def;return(<span style={{display:"inline-flex",alignItems:"center",gap:2,marginLeft:4,flexShrink:0}}><button onClick={()=>onChange(Math.max(min,v-step))} style={{width:18,height:18,borderRadius:5,border:"1px solid #ddd",background:"#fafafa",color:"#888",cursor:"pointer",fontSize:12,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>−</button><span style={{fontSize:12,color:"#888",minWidth:18,textAlign:"center"}}>{v}</span><button onClick={()=>onChange(Math.min(max,v+step))} style={{width:18,height:18,borderRadius:5,border:"1px solid #ddd",background:"#fafafa",color:"#888",cursor:"pointer",fontSize:12,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>+</button></span>);};
+const SzBtn=({val,def,min=8,max=48,step=1,onChange})=>{const v=val||def;return(<span style={{display:"inline-flex",alignItems:"center",gap:2,marginLeft:4,flexShrink:0}}><button onClick={()=>onChange(Math.max(min,v-step))} style={{width:18,height:18,borderRadius:5,border:"1px solid #ddd",background:"#fafafa",color:"#888",cursor:"pointer",fontSize:11,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>−</button><span style={{fontSize:9,color:"#888",minWidth:18,textAlign:"center"}}>{v}</span><button onClick={()=>onChange(Math.min(max,v+step))} style={{width:18,height:18,borderRadius:5,border:"1px solid #ddd",background:"#fafafa",color:"#888",cursor:"pointer",fontSize:11,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>+</button></span>);};
 /* RGBPick — spectrum color picker แบบ HSL ใช้ได้ทุกอุปกรณ์ */
 const RGBPick=({val,onChange})=>{
   const [open,setOpen]=React.useState(false);
@@ -1044,16 +861,16 @@ const RGBPick=({val,onChange})=>{
         </div>
         {/* Lightness slider (quick) */}
         <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
-          <span style={{fontSize:12,color:"#888",flexShrink:0}}>L</span>
+          <span style={{fontSize:9,color:"#888",flexShrink:0}}>L</span>
           <input type="range" min="5" max="95" value={lit} onChange={e=>{const v=Number(e.target.value);pick(hue,sat,v)}} style={{flex:1,height:8,borderRadius:4,appearance:"none",cursor:"pointer",background:`linear-gradient(90deg,#000,hsl(${hue},${sat}%,50%),#fff)`}}/>
-          <span style={{fontSize:12,color:"#888",minWidth:22}}>{lit}%</span>
+          <span style={{fontSize:9,color:"#888",minWidth:22}}>{lit}%</span>
         </div>
         {/* Color preview + hex input */}
         <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:8}}>
           <div style={{width:30,height:30,borderRadius:8,background:curColor,border:"1px solid #ddd",flexShrink:0}}/>
           <input type="color" value={curColor} onChange={e=>{onChange(e.target.value);}} style={{width:36,height:30,border:"none",padding:0,cursor:"pointer",borderRadius:6,flexShrink:0}}/>
-          <input type="text" value={curColor} onChange={e=>{if(/^#[0-9a-fA-F]{6}$/.test(e.target.value))onChange(e.target.value)}} style={{flex:1,padding:"4px 6px",border:"1px solid #ddd",borderRadius:6,fontSize:12,fontFamily:"monospace"}}/>
-          <button onClick={()=>{onChange("");setOpen(false);}} style={{fontSize:12,color:"#888",background:"#f5f5f5",border:"1px solid #ddd",borderRadius:6,padding:"4px 6px",cursor:"pointer",flexShrink:0}}>Auto</button>
+          <input type="text" value={curColor} onChange={e=>{if(/^#[0-9a-fA-F]{6}$/.test(e.target.value))onChange(e.target.value)}} style={{flex:1,padding:"4px 6px",border:"1px solid #ddd",borderRadius:6,fontSize:11,fontFamily:"monospace"}}/>
+          <button onClick={()=>{onChange("");setOpen(false);}} style={{fontSize:9,color:"#888",background:"#f5f5f5",border:"1px solid #ddd",borderRadius:6,padding:"4px 6px",cursor:"pointer",flexShrink:0}}>Auto</button>
         </div>
         {/* Quick presets */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:4}}>
@@ -1134,10 +951,10 @@ const VoiceBtn=({value,onChange,inputRef})=>{
   return<button onClick={toggle} style={{padding:"5px 10px",borderRadius:8,border:rec?"2px solid #e74c3c":"1px solid #ddd",background:rec?"#fce4ec":"#fafafa",color:rec?"#e74c3c":"#bbb",cursor:"pointer",fontSize:13,flexShrink:0,animation:rec?"pulse 1s infinite":"none",minWidth:36,minHeight:36,display:"flex",alignItems:"center",justifyContent:"center"}} title={rec?"หยุดบันทึก":"พิมพ์ด้วยเสียง"}>{rec?"⏹":"🎤"}</button>;
 };
 
-const EMPTY={orgName:"",subOrg:"",personName:"",personTitle:"",headline:"",bodyText:"",dateText:"",website:"",address:"",phone:"",profileUrl:"",profilePos:"50% 50%",profileZoom:100,profileSize:116,qrUrl:"",headerTitle:"ประชาสัมพันธ์",headerTitleSize:38,headerTitleColor:"",hlColor:"",hlBgColor:"",hlOffX:0,hlOffY:0,topImages:[],botImages:[],topImgH:300,botImgH:240,tcOrgName:"",tcSubOrg:"",tcPersonName:"",tcPersonTitle:"",tcDateText:"",tcBodyText:"",tcWebsite:"",tcAddress:"",tcPhone:"",fsOrgName:28,fsSubOrg:24,fsPersonName:19,fsPersonTitle:12,fsDateText:18,fsBodyText:17,fsHeadline:14,fsWebsite:13,fsAddress:13,fsPhone:13};
+const EMPTY={orgName:"",subOrg:"",personName:"",personTitle:"",headline:"",bodyText:"",dateText:"",website:"",address:"",phone:"",profileUrl:"",profilePos:"50% 50%",profileZoom:100,profileSize:116,logos:[],logoSize:42,qrUrl:"",headerTitle:"ประชาสัมพันธ์",headerTitleSize:38,headerTitleColor:"",hlColor:"",hlBgColor:"",hlOffX:0,hlOffY:0,topImages:[],botImages:[],topImgH:300,botImgH:240,tcOrgName:"",tcSubOrg:"",tcPersonName:"",tcPersonTitle:"",tcDateText:"",tcBodyText:"",tcWebsite:"",tcAddress:"",tcPhone:"",fsOrgName:28,fsSubOrg:24,fsPersonName:19,fsPersonTitle:12,fsDateText:18,fsBodyText:17,fsHeadline:14,fsWebsite:13,fsAddress:13,fsPhone:13};
 
 function App(){
-  const [ck,setCk]=useState("purple");const [sk,setSk]=useState("formal");const [d,setD]=useState(EMPTY);const [scale,setScale]=useState(0.45);const [exporting,setExporting]=useState(false);const [exportMsg,setExportMsg]=useState("");const [exportBlob,setExportBlob]=useState(null);const [exportFname,setExportFname]=useState("");const [loaded,setLoaded]=useState(false);const imgRef=useRef(null);const topImgRef=useRef(null);const botImgRef=useRef(null);const wrapRef=useRef(null);const prevScrollRef=useRef(null);
+  const [ck,setCk]=useState("purple");const [sk,setSk]=useState("formal");const [d,setD]=useState(EMPTY);const [scale,setScale]=useState(0.45);const [exporting,setExporting]=useState(false);const [exportMsg,setExportMsg]=useState("");const [exportBlob,setExportBlob]=useState(null);const [exportFname,setExportFname]=useState("");const [loaded,setLoaded]=useState(false);const imgRef=useRef(null);const topImgRef=useRef(null);const botImgRef=useRef(null);const wrapRef=useRef(null);
   const [formH,setFormH]=useState(null);
   const handleSplitDrag=useCallback((e)=>{
     e.preventDefault();
@@ -1193,21 +1010,10 @@ function App(){
   const [stripHue,setStripHue]=useState(0);const [stripBrt,setStripBrt]=useState(100);const [stripSat,setStripSat]=useState(100);const [stripVib,setStripVib]=useState(100);
   const [showHdrBg,setShowHdrBg]=useState(true);const [showBodyBg,setShowBodyBg]=useState(true);const [showFtrBg,setShowFtrBg]=useState(true);const [showBgPat,setShowBgPat]=useState(true);
   const [profileGX,setProfileGX]=useState(0);const [profileGY,setProfileGY]=useState(0);
+  const [logoGX,setLogoGX]=useState(0);const [logoGY,setLogoGY]=useState(0);
   const [contentOX,setContentOX]=useState(0);const [contentOY,setContentOY]=useState(0);
   const [footerTX,setFooterTX]=useState(0);const [footerTY,setFooterTY]=useState(0);
-  const [stripTopOffY,setStripTopOffY]=useState(0);const [stripBotOffY,setStripBotOffY]=useState(0);
-  const [stripTopHue,setStripTopHue]=useState(0);const [stripTopBrt,setStripTopBrt]=useState(100);const [stripTopSat,setStripTopSat]=useState(100);const [stripTopVib,setStripTopVib]=useState(100);
-  const [stripBotHue,setStripBotHue]=useState(0);const [stripBotBrt,setStripBotBrt]=useState(100);const [stripBotSat,setStripBotSat]=useState(100);const [stripBotVib,setStripBotVib]=useState(100);
-  const [stripAdjMode,setStripAdjMode]=useState("both");
-  const scrollAreaRef=useRef(null);
-  const [selectedEl,setSelectedEl]=useState(null); // null|'deco-0'..'deco-8'|'hl'
-  const selectedElRef=useRef(null);
-  useEffect(()=>{selectedElRef.current=selectedEl;},[selectedEl]);
-  const previewDblTapRef=useRef({id:null,t:0});
-  const DECO_DEFAULT=()=>({url:"",x:40,y:180,w:120,h:120,layer:11,visible:true,rot:0});
-  const [decoImgs,setDecoImgs]=useState(Array(9).fill(null).map(()=>DECO_DEFAULT()));
-  const decoFileRefs=[useRef(null),useRef(null),useRef(null),useRef(null),useRef(null),useRef(null),useRef(null),useRef(null),useRef(null)];
-  const [showProfileBg,setShowProfileBg]=useState(true);
+  const [showProfileBg,setShowProfileBg]=useState(true);const [showLogoBg,setShowLogoBg]=useState(true);
   const [hdrTextY,setHdrTextY]=useState(0);
   const [compactParagraph,setCompactParagraph]=useState(false);
   const [stripGradDir,setStripGradDir]=useState("lr"); // lr rl tb bt tl br
@@ -1222,36 +1028,6 @@ function App(){
   const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
   const isSafari=/^((?!chrome|android).)*safari/i.test(navigator.userAgent);
   const isLandscape=window.innerWidth>window.innerHeight; 
-  // ─────────────────────────────────────────────────────────────
-// AUTO SCROLL FORM เมื่อเลือกองค์ประกอบใน Preview
-// ─────────────────────────────────────────────────────────────
-useEffect(() => {
-  if (!selectedEl || !scrollAreaRef.current) return;
-
-  let targetId = "";
-  if (selectedEl === "headline") targetId = "fs-content";           // หัวข้อข่าว
-  else if (selectedEl === "hdr-text") targetId = "fs-header";
-  else if (selectedEl === "profile-img" || selectedEl === "profile-g") targetId = "fs-header";
-  else if (selectedEl === "content") targetId = "fs-content";
-  else if (selectedEl.startsWith("img-top-") || selectedEl.startsWith("img-bot-")) targetId = "fs-images";
-
-  if (targetId) {
-    const section = document.getElementById(targetId);
-    if (section) {
-      const scrollContainer = scrollAreaRef.current;
-      const offset = 80; // ชดเชยความสูงของ header + padding
-      const topPosition = section.getBoundingClientRect().top 
-                        + scrollContainer.scrollTop 
-                        - scrollContainer.getBoundingClientRect().top 
-                        - offset;
-
-      scrollContainer.scrollTo({
-        top: Math.max(0, topPosition),
-        behavior: "smooth"
-      });
-    }
-  }
-}, [selectedEl]);
 
   // PWA install prompt (Android/Desktop Chrome)
   useEffect(()=>{
@@ -1277,10 +1053,10 @@ useEffect(() => {
     setShowUpdate(false);
   };
 
-  useEffect(()=>{(async()=>{const saved=await ld();const imgs=await ldImgs();if(saved){if(saved.ck&&COLORS[saved.ck])setCk(saved.ck);if(saved.sk&&STYLES[saved.sk])setSk(saved.sk);if(typeof saved.hue==="number")setHue(saved.hue);if(typeof saved.brightness==="number")setBrightness(saved.brightness);if(typeof saved.saturation==="number")setSaturation(saved.saturation);if(typeof saved.vibrance==="number")setVibrance(saved.vibrance);if(saved.textAlign)setTextAlign(saved.textAlign);if(saved.stripGradDir)setStripGradDir(saved.stripGradDir);if(typeof saved.stripGradOn==="boolean")setStripGradOn(saved.stripGradOn);if(typeof saved.compactParagraph==="boolean")setCompactParagraph(saved.compactParagraph);if(typeof saved.hdrTextX==="number")setHdrTextX(saved.hdrTextX);if(saved.headerWm!=null)setHeaderWm(saved.headerWm);if(saved.headerWmPos)setHeaderWmPos(saved.headerWmPos);if(typeof saved.headerWmZoom==="number")setHeaderWmZoom(saved.headerWmZoom);if(typeof saved.headerWmOp==="number")setHeaderWmOp(saved.headerWmOp);if(typeof saved.stripHue==="number")setStripHue(saved.stripHue);if(typeof saved.stripBrt==="number")setStripBrt(saved.stripBrt);if(typeof saved.stripSat==="number")setStripSat(saved.stripSat);if(typeof saved.stripVib==="number")setStripVib(saved.stripVib);if(typeof saved.showHdrBg==="boolean")setShowHdrBg(saved.showHdrBg);if(typeof saved.showBodyBg==="boolean")setShowBodyBg(saved.showBodyBg);if(typeof saved.showFtrBg==="boolean")setShowFtrBg(saved.showFtrBg);if(typeof saved.showBgPat==="boolean")setShowBgPat(saved.showBgPat);if(typeof saved.profileGX==="number")setProfileGX(saved.profileGX);if(typeof saved.profileGY==="number")setProfileGY(saved.profileGY);if(typeof saved.contentOX==="number")setContentOX(saved.contentOX);if(typeof saved.contentOY==="number")setContentOY(saved.contentOY);if(typeof saved.footerTX==="number")setFooterTX(saved.footerTX);if(typeof saved.footerTY==="number")setFooterTY(saved.footerTY);if(typeof saved.showProfileBg==="boolean")setShowProfileBg(saved.showProfileBg);if(typeof saved.hdrTextY==="number")setHdrTextY(saved.hdrTextY);if(saved.d)setD({...EMPTY,...saved.d,topImages:imgs.top||[],botImages:imgs.bot||[],profileUrl:imgs.profileUrl||"",qrUrl:imgs.qrUrl||""});if(typeof saved.stripTopOffY==="number")setStripTopOffY(saved.stripTopOffY);if(typeof saved.stripBotOffY==="number")setStripBotOffY(saved.stripBotOffY);if(typeof saved.stripTopHue==="number")setStripTopHue(saved.stripTopHue);if(typeof saved.stripTopBrt==="number")setStripTopBrt(saved.stripTopBrt);if(typeof saved.stripTopSat==="number")setStripTopSat(saved.stripTopSat);if(typeof saved.stripTopVib==="number")setStripTopVib(saved.stripTopVib);if(typeof saved.stripBotHue==="number")setStripBotHue(saved.stripBotHue);if(typeof saved.stripBotBrt==="number")setStripBotBrt(saved.stripBotBrt);if(typeof saved.stripBotSat==="number")setStripBotSat(saved.stripBotSat);if(typeof saved.stripBotVib==="number")setStripBotVib(saved.stripBotVib);}else if(imgs.top?.length||imgs.bot?.length||imgs.profileUrl){setD(p=>({...p,topImages:imgs.top||[],botImages:imgs.bot||[],profileUrl:imgs.profileUrl||"",qrUrl:imgs.qrUrl||""}));}if(imgs.decoImgs?.length){const saved=imgs.decoImgs;const merged=Array(9).fill(null).map((_,i)=>saved[i]||DECO_DEFAULT());setDecoImgs(merged);}setLoaded(true)})()},[]);
-  useEffect(()=>{if(!loaded)return;const t=setTimeout(()=>{sv({ck,sk,hue,brightness,saturation,vibrance,textAlign,stripGradDir,stripGradOn,compactParagraph,hdrTextX,hdrTextY,headerWm,headerWmPos,headerWmZoom,headerWmOp,stripHue,stripBrt,stripSat,stripVib,stripTopHue,stripTopBrt,stripTopSat,stripTopVib,stripBotHue,stripBotBrt,stripBotSat,stripBotVib,showHdrBg,showBodyBg,showFtrBg,showBgPat,profileGX,profileGY,contentOX,contentOY,footerTX,footerTY,showProfileBg,stripTopOffY,stripBotOffY,d:{...d,topImages:[],botImages:[],profileUrl:"",qrUrl:""}});svImgs(d.topImages||[],d.botImages||[],d.profileUrl||"",d.qrUrl||"",decoImgs);},1000);return()=>clearTimeout(t)},[ck,sk,hue,brightness,saturation,vibrance,textAlign,stripGradDir,stripGradOn,compactParagraph,hdrTextX,hdrTextY,headerWm,headerWmPos,headerWmZoom,headerWmOp,stripHue,stripBrt,stripSat,stripVib,stripTopHue,stripTopBrt,stripTopSat,stripTopVib,stripBotHue,stripBotBrt,stripBotSat,stripBotVib,showHdrBg,showBodyBg,showFtrBg,showBgPat,profileGX,profileGY,contentOX,contentOY,footerTX,footerTY,showProfileBg,stripTopOffY,stripBotOffY,decoImgs,d,loaded]);
+  useEffect(()=>{(async()=>{const saved=await ld();const imgs=await ldImgs();if(saved){if(saved.ck&&COLORS[saved.ck])setCk(saved.ck);if(saved.sk&&STYLES[saved.sk])setSk(saved.sk);if(typeof saved.hue==="number")setHue(saved.hue);if(typeof saved.brightness==="number")setBrightness(saved.brightness);if(typeof saved.saturation==="number")setSaturation(saved.saturation);if(typeof saved.vibrance==="number")setVibrance(saved.vibrance);if(saved.textAlign)setTextAlign(saved.textAlign);if(saved.stripGradDir)setStripGradDir(saved.stripGradDir);if(typeof saved.stripGradOn==="boolean")setStripGradOn(saved.stripGradOn);if(typeof saved.compactParagraph==="boolean")setCompactParagraph(saved.compactParagraph);if(typeof saved.hdrTextX==="number")setHdrTextX(saved.hdrTextX);if(saved.headerWm!=null)setHeaderWm(saved.headerWm);if(saved.headerWmPos)setHeaderWmPos(saved.headerWmPos);if(typeof saved.headerWmZoom==="number")setHeaderWmZoom(saved.headerWmZoom);if(typeof saved.headerWmOp==="number")setHeaderWmOp(saved.headerWmOp);if(typeof saved.stripHue==="number")setStripHue(saved.stripHue);if(typeof saved.stripBrt==="number")setStripBrt(saved.stripBrt);if(typeof saved.stripSat==="number")setStripSat(saved.stripSat);if(typeof saved.stripVib==="number")setStripVib(saved.stripVib);if(typeof saved.showHdrBg==="boolean")setShowHdrBg(saved.showHdrBg);if(typeof saved.showBodyBg==="boolean")setShowBodyBg(saved.showBodyBg);if(typeof saved.showFtrBg==="boolean")setShowFtrBg(saved.showFtrBg);if(typeof saved.showBgPat==="boolean")setShowBgPat(saved.showBgPat);if(typeof saved.profileGX==="number")setProfileGX(saved.profileGX);if(typeof saved.profileGY==="number")setProfileGY(saved.profileGY);if(typeof saved.logoGX==="number")setLogoGX(saved.logoGX);if(typeof saved.logoGY==="number")setLogoGY(saved.logoGY);if(typeof saved.contentOX==="number")setContentOX(saved.contentOX);if(typeof saved.contentOY==="number")setContentOY(saved.contentOY);if(typeof saved.footerTX==="number")setFooterTX(saved.footerTX);if(typeof saved.footerTY==="number")setFooterTY(saved.footerTY);if(typeof saved.showProfileBg==="boolean")setShowProfileBg(saved.showProfileBg);if(typeof saved.showLogoBg==="boolean")setShowLogoBg(saved.showLogoBg);if(typeof saved.hdrTextY==="number")setHdrTextY(saved.hdrTextY);if(saved.d)setD({...EMPTY,...saved.d,topImages:imgs.top||[],botImages:imgs.bot||[],profileUrl:imgs.profileUrl||"",logos:imgs.logos||[],qrUrl:imgs.qrUrl||""});}else if(imgs.top?.length||imgs.bot?.length||imgs.profileUrl||imgs.logos?.length){setD(p=>({...p,topImages:imgs.top||[],botImages:imgs.bot||[],profileUrl:imgs.profileUrl||"",logos:imgs.logos||[],qrUrl:imgs.qrUrl||""}));}setLoaded(true)})()},[]);
+  useEffect(()=>{if(!loaded)return;const t=setTimeout(()=>{sv({ck,sk,hue,brightness,saturation,vibrance,textAlign,stripGradDir,stripGradOn,compactParagraph,hdrTextX,hdrTextY,headerWm,headerWmPos,headerWmZoom,headerWmOp,stripHue,stripBrt,stripSat,stripVib,showHdrBg,showBodyBg,showFtrBg,showBgPat,profileGX,profileGY,logoGX,logoGY,contentOX,contentOY,footerTX,footerTY,showProfileBg,showLogoBg,d:{...d,topImages:[],botImages:[],profileUrl:"",logos:[],qrUrl:""}});svImgs(d.topImages||[],d.botImages||[],d.profileUrl||"",d.logos||[],d.qrUrl||"");},1000);return()=>clearTimeout(t)},[ck,sk,hue,brightness,saturation,vibrance,textAlign,stripGradDir,stripGradOn,compactParagraph,hdrTextX,hdrTextY,headerWm,headerWmPos,headerWmZoom,headerWmOp,stripHue,stripBrt,stripSat,stripVib,showHdrBg,showBodyBg,showFtrBg,showBgPat,profileGX,profileGY,logoGX,logoGY,contentOX,contentOY,footerTX,footerTY,showProfileBg,showLogoBg,d,loaded]);
   /* บันทึกทันทีเมื่อออกจากแอพ (ปิดแท็บ, กลับหน้าจอโฮม, สลับแอพ) */
-  useEffect(()=>{if(!loaded)return;const saveNow=()=>{sv({ck,sk,hue,brightness,saturation,vibrance,textAlign,stripGradDir,stripGradOn,compactParagraph,hdrTextX,hdrTextY,headerWm,headerWmPos,headerWmZoom,headerWmOp,stripHue,stripBrt,stripSat,stripVib,stripTopHue,stripTopBrt,stripTopSat,stripTopVib,stripBotHue,stripBotBrt,stripBotSat,stripBotVib,showHdrBg,showBodyBg,showFtrBg,showBgPat,profileGX,profileGY,contentOX,contentOY,footerTX,footerTY,showProfileBg,stripTopOffY,stripBotOffY,d:{...d,topImages:[],botImages:[],profileUrl:"",qrUrl:""}});svImgs(d.topImages||[],d.botImages||[],d.profileUrl||"",d.qrUrl||"",decoImgs);};const onHide=()=>{if(document.visibilityState==="hidden")saveNow();};document.addEventListener("visibilitychange",onHide);return()=>document.removeEventListener("visibilitychange",onHide);},[loaded,ck,sk,hue,brightness,saturation,vibrance,textAlign,stripGradDir,stripGradOn,compactParagraph,hdrTextX,hdrTextY,headerWm,headerWmPos,headerWmZoom,headerWmOp,stripHue,stripBrt,stripSat,stripVib,showHdrBg,showBodyBg,showFtrBg,showBgPat,profileGX,profileGY,contentOX,contentOY,footerTX,footerTY,showProfileBg,stripTopOffY,stripBotOffY,decoImgs,d]);
+  useEffect(()=>{if(!loaded)return;const saveNow=()=>{sv({ck,sk,hue,brightness,saturation,vibrance,textAlign,stripGradDir,stripGradOn,compactParagraph,hdrTextX,hdrTextY,headerWm,headerWmPos,headerWmZoom,headerWmOp,stripHue,stripBrt,stripSat,stripVib,showHdrBg,showBodyBg,showFtrBg,showBgPat,profileGX,profileGY,logoGX,logoGY,contentOX,contentOY,footerTX,footerTY,showProfileBg,showLogoBg,d:{...d,topImages:[],botImages:[],profileUrl:"",logos:[],qrUrl:""}});svImgs(d.topImages||[],d.botImages||[],d.profileUrl||"",d.logos||[],d.qrUrl||"");};const onHide=()=>{if(document.visibilityState==="hidden")saveNow();};document.addEventListener("visibilitychange",onHide);return()=>document.removeEventListener("visibilitychange",onHide);},[loaded,ck,sk,hue,brightness,saturation,vibrance,textAlign,stripGradDir,stripGradOn,compactParagraph,hdrTextX,hdrTextY,headerWm,headerWmPos,headerWmZoom,headerWmOp,stripHue,stripBrt,stripSat,stripVib,showHdrBg,showBodyBg,showFtrBg,showBgPat,profileGX,profileGY,logoGX,logoGY,contentOX,contentOY,footerTX,footerTY,showProfileBg,showLogoBg,d]);
 
  
   // Google Sheets license check — cooldown 5 min, แต่รีเซ็ตได้ด้วย forceCheck
@@ -1309,6 +1085,8 @@ useEffect(() => {
   const onImgZoom=(zone,idx,zoom)=>zone==="top"?setTopImgZoom(idx,zoom):setBotImgZoom(idx,zoom);
   const onProfileDrag=(pos)=>set("profilePos",pos);
   const onProfileZoom=(zoom)=>set("profileZoom",zoom);
+  const onLogoDrag=(idx,pos)=>setD(p=>({...p,logos:p.logos.map((l,j)=>{if(j!==idx)return l;const lo=typeof l==="string"?{url:l,pos:"50% 50%",zoom:100}:l;return{...lo,pos}})}));
+  const onLogoZoom=(idx,zoom)=>setD(p=>({...p,logos:p.logos.map((l,j)=>{if(j!==idx)return l;const lo=typeof l==="string"?{url:l,pos:"50% 50%",zoom:100}:l;return{...lo,zoom}})}));
 
   const [isRecording,setIsRecording]=useState(false);
   const bodyRecRef=useRef(null);   /* SpeechRecognition instance สำหรับ body เท่านั้น — แยกจาก VoiceBtn */
@@ -1323,7 +1101,7 @@ useEffect(() => {
     const proOk=isPro&&tokenOk;
     const needsPro=!proOk&&(STYLES[sk]?.pro||hue!==0||brightness!==100||saturation!==100||vibrance!==100);
     if(needsPro){setShowProPopup(true);return}
-    setExporting(true);setExportMsg("⏳ เตรียมส่งออก...");
+    setExporting(true);setExportMsg("");
     try{
     if(!window.html2canvas){const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";document.head.appendChild(s);await new Promise((res,rej)=>{s.onload=res;s.onerror=()=>rej(new Error("โหลดไม่สำเร็จ"));setTimeout(()=>rej(new Error("Timeout")),10000)})}
     const wrap=wrapRef.current;if(!wrap)throw new Error("ไม่พบ");
@@ -1331,178 +1109,98 @@ useEffect(() => {
     await new Promise(r=>setTimeout(r,500));
     const el=document.getElementById("main-preview");
     if(!el)throw new Error("ไม่พบ preview");
-
-    /* ─── Pre-process: แปลง photo backgroundImages → <img> ใน main DOM
-       (images โหลดอยู่แล้ว — ไม่ต้องรอในขั้นตอน clone ที่ซิงค์ครัส)
-       Patterns (bgSize มี px) ปล่อยให้ html2canvas จัดการเอง ────────── */
-    const restoreQueue=[];
-    Array.from(el.querySelectorAll('[style]')).forEach(div=>{
-      const s=div.style;
-      const bgImg=s.backgroundImage;
-      if(!bgImg||bgImg==="none"||!bgImg.includes("url("))return;
-      const url=bgImg.replace(/^url\(["']?/,'').replace(/["']?\)$/,'');
-      if(!url.startsWith("data:image/")&&!url.startsWith("blob:"))return;
-      const bgRepeat=s.backgroundRepeat||"";
-      const bgSize=s.backgroundSize||"";
-      /* Skip patterns: bgSize มี px (tile size) หรือไม่ได้ระบุ no-repeat */
-      const isPhoto=(bgRepeat==="no-repeat"||bgRepeat==="no-repeat no-repeat")&&
-                    (bgSize==="cover"||/^\d+(\.\d+)?%$/.test(bgSize.trim()));
-      if(!isPhoto)return;
-      const rect=div.getBoundingClientRect();
-      const cw=rect.width||div.offsetWidth||200;
-      const ch=rect.height||div.offsetHeight||200;
-      const posArr=(s.backgroundPosition||"50% 50%").split(" ");
-      const px=parseFloat(posArr[0])||50;
-      const py=parseFloat(posArr[1])||50;
-      /* snapshot originals */
-      const snap={bgImg:s.backgroundImage,pos:s.position,overflow:s.overflow};
-      if(snap.pos!=="absolute"&&snap.pos!=="fixed"&&snap.pos!=="relative")s.position="relative";
-      s.overflow="hidden";s.backgroundImage="none";
-      /* build wrapper + img */
-      const wr=document.createElement("div");
-      wr.setAttribute("data-exp-wr","1");
-      wr.style.cssText=`position:absolute;top:0;left:0;width:${cw}px;height:${ch}px;overflow:hidden;pointer-events:none;z-index:9999;`;
-      const img=document.createElement("img");
-      img.src=url;
-      /* html2canvas ไม่รองรับ object-fit — ใช้ position:absolute + pixel calc แทนทุกกรณี */
-      img.style.cssText=`position:absolute;display:block;pointer-events:none;`;
-      wr.appendChild(img);div.insertBefore(wr,div.firstChild);
-      restoreQueue.push({div,wr,snap,isCover:bgSize==="cover",bgSize,cw,ch,px,py});
-    });
-
-    /* รอให้ทุก backgroundImage img โหลดเสร็จ แล้วคำนวณ pixel position */
-    await Promise.all(restoreQueue.map(({wr,isCover,bgSize,cw,ch,px,py})=>{
-      const img=wr.querySelector("img");if(!img)return Promise.resolve();
-      const applyPos=()=>{
-        const nw=img.naturalWidth||1,nh=img.naturalHeight||1;
-        let iw,ih;
-        if(isCover){
-          /* background-size:cover → scale to cover container, preserve aspect ratio */
-          const s=Math.max(cw/nw,ch/nh);
-          iw=Math.round(nw*s);ih=Math.round(nh*s);
-        }else{
-          /* background-size:N% → width=cw*z, height=width*(nh/nw) */
-          const z=parseFloat(bgSize)/100;
-          iw=Math.round(cw*z);ih=Math.round(iw*nh/nw);
-        }
-        /* background-position formula: offset=(container-image)*pct/100 */
-        const ox=Math.round((cw-iw)*px/100);
-        const oy=Math.round((ch-ih)*py/100);
-        img.style.width=`${iw}px`;img.style.height=`${ih}px`;
-        img.style.left=`${ox}px`;img.style.top=`${oy}px`;
-      };
-      if(img.complete){applyPos();return Promise.resolve();}
-      return new Promise(r=>{img.onload=()=>{applyPos();r();};img.onerror=r;setTimeout(()=>{applyPos();r();},8000);});
-    }));
-
-    /* ─── Pre-process: deco <img> objectFit:contain → explicit px
-       (html2canvas ไม่รองรับ object-fit ทำให้ภาพยืดผิดสัดส่วน) ─── */
-    const decoRestoreQueue=[];
-    Array.from(el.querySelectorAll('[data-selid^="deco-"]')).forEach(decoDiv=>{
-      const img=decoDiv.querySelector('img');
-      if(!img||!img.src||img.src.length<10)return;
-      const cw=decoDiv.offsetWidth||120,ch=decoDiv.offsetHeight||120;
-      const snap={w:img.style.width,h:img.style.height,pos:img.style.position,
-                  l:img.style.left,t:img.style.top,fit:img.style.objectFit};
-      const applyContain=(nw,nh)=>{
-        if(!nw||!nh)return;
-        const s=Math.min(cw/nw,ch/nh);
-        const iw=Math.round(nw*s),ih=Math.round(nh*s);
-        const ox=Math.round((cw-iw)/2),oy=Math.round((ch-ih)/2);
-        img.style.position="absolute";
-        img.style.width=`${iw}px`;img.style.height=`${ih}px`;
-        img.style.left=`${ox}px`;img.style.top=`${oy}px`;
-        img.style.objectFit="none";img.style.objectPosition="";
-        if(!['relative','absolute','fixed'].includes(decoDiv.style.position))decoDiv.style.position='relative';
-      };
-      if(img.complete&&img.naturalWidth>0){applyContain(img.naturalWidth,img.naturalHeight);decoRestoreQueue.push({img,snap});}
-      else{decoRestoreQueue.push({img,snap,pending:true,decoDiv});}
-    });
-    await Promise.all(decoRestoreQueue.filter(x=>x.pending).map(x=>new Promise(r=>{
-      x.img.onload=()=>{
-        const cw=x.decoDiv.offsetWidth||120,ch=x.decoDiv.offsetHeight||120;
-        const nw=x.img.naturalWidth,nh=x.img.naturalHeight;
-        if(!nw||!nh){r();return;}
-        const s=Math.min(cw/nw,ch/nh);
-        const iw=Math.round(nw*s),ih=Math.round(nh*s);
-        const ox=Math.round((cw-iw)/2),oy=Math.round((ch-ih)/2);
-        x.img.style.position="absolute";
-        x.img.style.width=`${iw}px`;x.img.style.height=`${ih}px`;
-        x.img.style.left=`${ox}px`;x.img.style.top=`${oy}px`;
-        x.img.style.objectFit="none";x.img.style.objectPosition="";
-        if(!['relative','absolute','fixed'].includes(x.decoDiv.style.position))x.decoDiv.style.position='relative';
-        r();
-      };
-      x.img.onerror=r;setTimeout(r,5000);
-    })));
-
-    const canvas=await window.html2canvas(el,{scale:4,useCORS:true,backgroundColor:"#ffffff",width:794,height:1123,logging:false,imageTimeout:60000,
+    const canvas=await window.html2canvas(el,{scale:4,useCORS:true,allowTaint:true,backgroundColor:"#ffffff",width:794,height:1123,logging:false,imageTimeout:30000,
         onclone:(doc)=>{
-          /* ซ่อน drag handles และ selection borders */
-          const pEl=doc.getElementById("main-preview");
-          if(pEl){
-            pEl.querySelectorAll('[data-drag-handle]').forEach(e=>{e.style.display="none";});
-            pEl.querySelectorAll('[data-selid]').forEach(e=>{e.style.outline="none";e.style.filter="none";});
-          }
-          /* iOS: SVG data-URL backgrounds can taint canvas — replace with none */
-          doc.querySelectorAll('[style]').forEach(el=>{
-            const bg=el.style.backgroundImage;
-            if(bg&&bg.includes("url(")&&bg.includes("data:image/svg"))el.style.backgroundImage="none";
-          });
-        }
-    });
-    /* ─── Restore DOM ─────────────────────────── */
-    restoreQueue.forEach(({div,wr,snap})=>{
-      wr.remove();
-      div.style.backgroundImage=snap.bgImg;
-      if(snap.pos)div.style.position=snap.pos;else div.style.removeProperty("position");
-      if(snap.overflow)div.style.overflow=snap.overflow;else div.style.removeProperty("overflow");
-    });
-    decoRestoreQueue.forEach(({img,snap})=>{
-      img.style.width=snap.w;img.style.height=snap.h;
-      img.style.position=snap.pos;img.style.left=snap.l;
-      img.style.top=snap.t;img.style.objectFit=snap.fit;
+  /* ซ่อน drag handles ไม่ให้ออกมาใน export */
+  const previewEl=doc.getElementById("main-preview");
+  if(previewEl){
+    previewEl.querySelectorAll('[data-drag-handle]').forEach(el=>{el.style.display="none";});
+  }
+  const divs=doc.querySelectorAll('[style]');
+  divs.forEach(div=>{
+    const s=div.style;
+    const bgImg=s.backgroundImage;
+    if(!bgImg||bgImg==="none"||!bgImg.includes("url("))return;
+    const url=bgImg.replace(/^url\(["']?/,'').replace(/["']?\)$/,'');
+    if(url.startsWith("data:image/svg")||url.includes("encodeURIComponent"))return;
+    if(!url.startsWith("data:image/")&&!url.startsWith("blob:"))return;
+
+    const rect=div.getBoundingClientRect();
+    const cw=rect.width||div.offsetWidth||200;
+    const ch=rect.height||div.offsetHeight||200;
+
+    const bgPos=s.backgroundPosition||"50% 50%";
+    const posArr=bgPos.split(" ");
+    const px=parseFloat(posArr[0])||50;
+    const py=parseFloat(posArr[1])||50;
+
+    const bgSize=s.backgroundSize;
+    let zoomFactor=1;
+    if(bgSize&&bgSize!=='cover'&&bgSize.includes("%")){
+      const pct=parseFloat(bgSize);
+      if(pct>100) zoomFactor=pct/100;
+    }
+
+    // สร้าง temp image เพื่อหา natural dimensions
+    const tmp=new Image();
+    tmp.src=url;
+    const nw=tmp.naturalWidth||cw;
+    const nh=tmp.naturalHeight||ch;
+
+    // คำนวณ cover dimensions (เหมือน background-size:cover)
+    const containerRatio=cw/ch;
+    const imgRatio=nw/nh;
+    let drawW,drawH;
+    if(imgRatio>containerRatio){
+      drawH=ch; drawW=ch*imgRatio;
+    }else{
+      drawW=cw; drawH=cw/imgRatio;
+    }
+
+    // ถ้ามี zoom ให้ขยายเพิ่ม
+    drawW*=zoomFactor;
+    drawH*=zoomFactor;
+
+    // คำนวณ offset ตาม background-position
+    const offsetX=-(drawW-cw)*(px/100);
+    const offsetY=-(drawH-ch)*(py/100);
+
+    const img=doc.createElement("img");
+    img.src=url;
+    img.crossOrigin="anonymous";
+
+    const oldPos=s.position;
+    if(oldPos!=='absolute'&&oldPos!=='fixed'&&oldPos!=='relative')s.position="relative";
+    s.overflow="hidden";
+    s.backgroundImage="none";
+
+    const wrapper=doc.createElement("div");
+    wrapper.style.cssText=`position:absolute;top:0;left:0;width:${cw}px;height:${ch}px;overflow:hidden;pointer-events:none;`;
+    img.style.cssText=`position:absolute;top:${offsetY}px;left:${offsetX}px;width:${drawW}px;height:${drawH}px;pointer-events:none;`;
+    wrapper.appendChild(img);
+    div.insertBefore(wrapper,div.firstChild);
+  });
+  /* Fix text justification for html2canvas */
+  doc.querySelectorAll('[style]').forEach(function(e){
+    if(e.style.textAlign==='justify'){
+      e.style.textAlign='left';
+      e.style.textAlignLast='';
+      e.style.textJustify='';
+      e.style.WebkitTextJustify='';
+    }
+  });
+}
     });
     wrap.style.transform=orig;
-    /* Post-process: apply global bf filter via canvas so export matches preview */
-    const finalCanvas=(()=>{
-      const _vib=(v)=>{if(v===100)return"";const s=v>100?1+(v-100)/100*0.75:Math.max(0,1-(100-v)/100*0.7);const cont=v>100?1+(v-100)/100*0.04:1-(100-v)/100*0.02;return`saturate(${s.toFixed(3)}) contrast(${cont.toFixed(3)})`;};
-      const _bf=(brightness!==100||saturation!==100||vibrance!==100)?`brightness(${brightness/100}) saturate(${saturation/100}) ${_vib(vibrance)}`.trim():null;
-      if(!_bf)return canvas;
-      const out=document.createElement("canvas");
-      out.width=canvas.width;out.height=canvas.height;
-      const ctx=out.getContext("2d");
-      ctx.filter=_bf;ctx.drawImage(canvas,0,0);
-      return out;
-    })();
     const MAX_BYTES=10*1024*1024;
     const now=new Date();
     const ts=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
-    const dataURLToBlob=(dataurl)=>{
-      const parts=dataurl.split(',');
-      const header=parts[0];
-      const data=parts[1]||'';
-      const isBase64=header.indexOf('base64')>=0;
-      const mimeMatch=header.match(/:(.*?);/);
-      const mime=(mimeMatch&&mimeMatch[1])||'';
-      if(isBase64){
-        const binary=atob(data);
-        const len=binary.length;const u8=new Uint8Array(len);
-        for(let i=0;i<len;i++)u8[i]=binary.charCodeAt(i);
-        return new Blob([u8],{type:mime});
-      }else{
-        const decoded=decodeURIComponent(data);
-        const len=decoded.length;const u8=new Uint8Array(len);
-        for(let i=0;i<len;i++)u8[i]=decoded.charCodeAt(i);
-        return new Blob([u8],{type:mime});
-      }
-    };
-    let dataUrl=finalCanvas.toDataURL("image/png");
-    let blob=dataURLToBlob(dataUrl);
+    let dataUrl=canvas.toDataURL("image/png");
+    let blob=await(await fetch(dataUrl)).blob();
     let fname=`newsletter_${ts}.png`;
     if(blob.size>MAX_BYTES){
       let q=0.92;
-      while(q>=0.5){dataUrl=finalCanvas.toDataURL("image/jpeg",q);blob=dataURLToBlob(dataUrl);if(blob.size<=MAX_BYTES)break;q-=0.08;}
+      while(q>=0.5){dataUrl=canvas.toDataURL("image/jpeg",q);blob=await(await fetch(dataUrl)).blob();if(blob.size<=MAX_BYTES)break;q-=0.08;}
       fname=fname.replace(".png",".jpg");
       setExportMsg(`⚠️ ขนาดใหญ่ บีบอัดเป็น JPEG (${(blob.size/1024/1024).toFixed(1)}MB)`);
     }
@@ -1521,159 +1219,7 @@ else{
 }
   }catch(err){console.error(err);setExportMsg("❌ "+err.message);if(wrapRef.current)wrapRef.current.style.transform=`scale(${scale})`}setExporting(false)};
 
-  const scrollToSection=(id)=>{
-    const el=document.getElementById(id);
-    const area=scrollAreaRef.current;
-    if(!el||!area)return;
-    const areaRect=area.getBoundingClientRect();
-    const elRect=el.getBoundingClientRect();
-    const relTop=elRect.top-areaRect.top+area.scrollTop;
-    area.scrollTo({top:Math.max(0,relTop-8),behavior:"smooth"});
-  };
-  const previewTapRef=useRef(null);
-  /* capture phase → fires even when child calls stopPropagation on bubble phase */
-  const onPreviewTouchStartCapture=(e)=>{
-    if(e.touches.length!==1)return;
-    previewTapRef.current={t:Date.now(),x:e.touches[0].clientX,y:e.touches[0].clientY};
-  };
-  const selIdToSection=(id)=>{
-    if(!id)return null;
-    if(['profile-g','profile-img','hdr-text','hdrwm','hl'].includes(id))return'fs-header';
-    if(id.startsWith('img-'))return'fs-images';
-    if(id.startsWith('deco-'))return'fs-deco';
-    if(id==='content')return'fs-content';
-    if(id==='footer-t')return'fs-footer';
-    if(id==='strip-top'||id==='strip-bot')return'fs-strip';
-    return null;
-  };
-  const onPreviewTouchEndCapture=(e)=>{
-    const p=previewTapRef.current;previewTapRef.current=null;
-    if(!p||Date.now()-p.t>350)return;
-    const t=e.changedTouches?.[0];
-    if(!t||Math.abs(t.clientX-p.x)>12||Math.abs(t.clientY-p.y)>12)return;
-    e.preventDefault(); /* ป้องกัน iOS double-tap zoom ที่ทำให้หน้าขาว */
-    /* double-tap → select/deselect element + scroll form */
-    const tapEl=e.target.closest('[data-selid]');
-    const selId=tapEl?.dataset?.selid;
-    const now=Date.now();
-    const dbl=previewDblTapRef.current;
-    const sec=selIdToSection(selId);
-    if(selId){
-      if(dbl.id===selId&&now-dbl.t<300){
-        setSelectedEl(prev=>prev===selId?null:selId);
-        previewDblTapRef.current={id:null,t:0};
-      }else{
-        previewDblTapRef.current={id:selId,t:now};
-      }
-      if(sec)scrollToSection(sec); // เลื่อนฟอร์มทุกครั้งที่แตะ element
-      return;
-    }
-    setSelectedEl(null);previewDblTapRef.current={id:null,t:0};
-    const rect=wrapRef.current?.getBoundingClientRect();
-    if(!rect)return;
-    const cy=(t.clientY-rect.top)/scale;
-    /* zone mapping: HEADER_H=258, FOOTER_H=82, strip ±69px from seam */
-    if(cy<190)scrollToSection("fs-header");
-    else if(cy<327)scrollToSection("fs-strip");
-    else if(cy<580)scrollToSection("fs-images");
-    else if(cy<972)scrollToSection("fs-content");
-    else if(cy<1110)scrollToSection("fs-strip");
-    else scrollToSection("fs-footer");
-  };
-  const handleReset=()=>{setD(EMPTY);setHue(0);setBrightness(100);setSaturation(100);setVibrance(100);setHdrTextX(0);setHdrTextY(0);setHeaderWm("");setHeaderWmPos("50% 50%");setHeaderWmZoom(100);setHeaderWmOp(50);setStripHue(0);setStripBrt(100);setStripSat(100);setStripVib(100);setStripTopHue(0);setStripTopBrt(100);setStripTopSat(100);setStripTopVib(100);setStripBotHue(0);setStripBotBrt(100);setStripBotSat(100);setStripBotVib(100);setShowHdrBg(true);setShowBodyBg(true);setShowFtrBg(true);setShowBgPat(true);setProfileGX(0);setProfileGY(0);setContentOX(0);setContentOY(0);setFooterTX(0);setFooterTY(0);setShowProfileBg(true);sv({ck,sk,hue:0,brightness:100,saturation:100,vibrance:100,textAlign,d:EMPTY})};
-
-  const compressImg=async(url,q=0.72)=>{
-    if(!url||!url.startsWith("data:image/"))return url;
-    if(url.startsWith("data:image/jpeg"))return url;
-    return new Promise(res=>{const img=new Image();img.onload=()=>{const c=document.createElement("canvas");c.width=img.naturalWidth;c.height=img.naturalHeight;const ctx=c.getContext("2d");ctx.fillStyle="#fff";ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0);res(c.toDataURL("image/jpeg",q));};img.onerror=()=>res(url);img.src=url;});
-  };
-  const getThumbnail=async()=>{
-    const el=document.getElementById("main-preview");if(!el)return null;
-    try{
-      if(!window.html2canvas){const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";document.head.appendChild(s);await new Promise((res,rej)=>{s.onload=res;s.onerror=rej;setTimeout(rej,8000);});}
-      const c=await window.html2canvas(el,{scale:0.22,useCORS:true,backgroundColor:"#fff",width:794,height:1123,logging:false,imageTimeout:15000,onclone:(doc)=>{doc.querySelectorAll('[style]').forEach(el=>{const s=el.style;const bg=s.backgroundImage;if(bg&&bg.includes("url(")&&(bg.includes("data:image/svg")||bg.includes("encodeURIComponent")))s.backgroundImage="none";});}});
-      return c.toDataURL("image/jpeg",0.55);
-    }catch(e){return null;}
-  };
-  const handleSaveProject=async()=>{
-    setExportMsg("⏳ กำลังบันทึก...");
-    try{
-      const imgs=await ldImgs();
-      const [topImgs,botImgs,profileUrl,qrUrl,thumb]=await Promise.all([
-        Promise.all((imgs.top||[]).map(img=>compressImg(img.url).then(u=>({...img,url:u})))),
-        Promise.all((imgs.bot||[]).map(img=>compressImg(img.url).then(u=>({...img,url:u})))),
-        compressImg(imgs.profileUrl||""),
-        compressImg(imgs.qrUrl||"",0.8),
-        getThumbnail()
-      ]);
-      const compDecos=await Promise.all(decoImgs.map(async img=>img?.url?{...img,url:await compressImg(img.url)}:img));
-      const cleanD=Object.fromEntries(Object.entries(d).filter(([,v])=>v!==""&&v!==null&&v!==undefined&&!(Array.isArray(v)&&v.length===0)));
-      const proj={version:3,ck,sk,hue,brightness,saturation,vibrance,textAlign,stripGradDir,stripGradOn,compactParagraph,hdrTextX,hdrTextY,headerWm,headerWmPos,headerWmZoom,headerWmOp,stripHue,stripBrt,stripSat,stripVib,stripTopHue,stripTopBrt,stripTopSat,stripTopVib,stripBotHue,stripBotBrt,stripBotSat,stripBotVib,showHdrBg,showBodyBg,showFtrBg,showBgPat,profileGX,profileGY,contentOX,contentOY,footerTX,footerTY,showProfileBg,stripTopOffY,stripBotOffY,d:cleanD,topImages:topImgs,botImages:botImgs,profileUrl,qrUrl,decoImgs:compDecos,thumbnail:thumb};
-      const blob=new Blob([JSON.stringify(proj)],{type:"application/json"});
-      const now=new Date();const ts=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}_${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}`;
-      const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`newsletter_${ts}.nl365`;document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(a.href);
-      setExportMsg("✅ บันทึกโปรเจคสำเร็จ!");setTimeout(()=>setExportMsg(""),3000);
-    }catch(e){setExportMsg("❌ บันทึกไม่สำเร็จ: "+e.message);}
-  };
-
-  const projFileRef=useRef(null);
-  const handleLoadProject=(e)=>{
-    const f=e.target.files?.[0];if(!f)return;
-    const r=new FileReader();
-    r.onload=(ev)=>{
-      try{
-        const proj=JSON.parse(ev.target.result);
-        if(proj.ck&&COLORS[proj.ck])setCk(proj.ck);
-        if(proj.sk&&STYLES[proj.sk])setSk(proj.sk);
-        if(typeof proj.hue==="number")setHue(proj.hue);
-        if(typeof proj.brightness==="number")setBrightness(proj.brightness);
-        if(typeof proj.saturation==="number")setSaturation(proj.saturation);
-        if(typeof proj.vibrance==="number")setVibrance(proj.vibrance);
-        if(proj.textAlign)setTextAlign(proj.textAlign);
-        if(proj.stripGradDir)setStripGradDir(proj.stripGradDir);
-        if(typeof proj.stripGradOn==="boolean")setStripGradOn(proj.stripGradOn);
-        if(typeof proj.compactParagraph==="boolean")setCompactParagraph(proj.compactParagraph);
-        if(typeof proj.hdrTextX==="number")setHdrTextX(proj.hdrTextX);
-        if(typeof proj.hdrTextY==="number")setHdrTextY(proj.hdrTextY);
-        if(proj.headerWm!=null)setHeaderWm(proj.headerWm);
-        if(proj.headerWmPos)setHeaderWmPos(proj.headerWmPos);
-        if(typeof proj.headerWmZoom==="number")setHeaderWmZoom(proj.headerWmZoom);
-        if(typeof proj.headerWmOp==="number")setHeaderWmOp(proj.headerWmOp);
-        if(typeof proj.stripHue==="number")setStripHue(proj.stripHue);
-        if(typeof proj.stripBrt==="number")setStripBrt(proj.stripBrt);
-        if(typeof proj.stripSat==="number")setStripSat(proj.stripSat);
-        if(typeof proj.stripVib==="number")setStripVib(proj.stripVib);
-        if(typeof proj.stripTopHue==="number")setStripTopHue(proj.stripTopHue);
-        if(typeof proj.stripTopBrt==="number")setStripTopBrt(proj.stripTopBrt);
-        if(typeof proj.stripTopSat==="number")setStripTopSat(proj.stripTopSat);
-        if(typeof proj.stripTopVib==="number")setStripTopVib(proj.stripTopVib);
-        if(typeof proj.stripBotHue==="number")setStripBotHue(proj.stripBotHue);
-        if(typeof proj.stripBotBrt==="number")setStripBotBrt(proj.stripBotBrt);
-        if(typeof proj.stripBotSat==="number")setStripBotSat(proj.stripBotSat);
-        if(typeof proj.stripBotVib==="number")setStripBotVib(proj.stripBotVib);
-        if(typeof proj.showHdrBg==="boolean")setShowHdrBg(proj.showHdrBg);
-        if(typeof proj.showBodyBg==="boolean")setShowBodyBg(proj.showBodyBg);
-        if(typeof proj.showFtrBg==="boolean")setShowFtrBg(proj.showFtrBg);
-        if(typeof proj.showBgPat==="boolean")setShowBgPat(proj.showBgPat);
-        if(typeof proj.profileGX==="number")setProfileGX(proj.profileGX);
-        if(typeof proj.profileGY==="number")setProfileGY(proj.profileGY);
-        if(typeof proj.contentOX==="number")setContentOX(proj.contentOX);
-        if(typeof proj.contentOY==="number")setContentOY(proj.contentOY);
-        if(typeof proj.footerTX==="number")setFooterTX(proj.footerTX);
-        if(typeof proj.footerTY==="number")setFooterTY(proj.footerTY);
-        if(typeof proj.showProfileBg==="boolean")setShowProfileBg(proj.showProfileBg);
-        if(typeof proj.stripTopOffY==="number")setStripTopOffY(proj.stripTopOffY);
-        if(typeof proj.stripBotOffY==="number")setStripBotOffY(proj.stripBotOffY);
-        const td=proj.d||{};
-        setD({...EMPTY,...td,topImages:proj.topImages||[],botImages:proj.botImages||[],profileUrl:proj.profileUrl||"",qrUrl:proj.qrUrl||""});
-        if(proj.decoImgs?.length){const merged=Array(9).fill(null).map((_,i)=>proj.decoImgs[i]||DECO_DEFAULT());setDecoImgs(merged);}
-        svImgs(proj.topImages||[],proj.botImages||[],proj.profileUrl||"",proj.qrUrl||"",proj.decoImgs||decoImgs);
-        setExportMsg("✅ โหลดโปรเจคสำเร็จ!");setTimeout(()=>setExportMsg(""),3000);
-      }catch(err){setExportMsg("❌ โหลดไม่สำเร็จ: "+err.message);}
-    };
-    r.readAsText(f);
-    e.target.value="";
-  };
+  const handleReset=()=>{setD(EMPTY);setHue(0);setBrightness(100);setSaturation(100);setVibrance(100);setHdrTextX(0);setHdrTextY(0);setHeaderWm("");setHeaderWmPos("50% 50%");setHeaderWmZoom(100);setHeaderWmOp(50);setStripHue(0);setStripBrt(100);setStripSat(100);setStripVib(100);setShowHdrBg(true);setShowBodyBg(true);setShowFtrBg(true);setShowBgPat(true);setProfileGX(0);setProfileGY(0);setLogoGX(0);setLogoGY(0);setContentOX(0);setContentOY(0);setFooterTX(0);setFooterTY(0);setShowProfileBg(true);setShowLogoBg(true);sv({ck,sk,hue:0,brightness:100,saturation:100,vibrance:100,textAlign,d:EMPTY})};
   const shifted=shiftColors(COLORS[ck],hue);
   const ac=shifted.pri,fc2=shifted.sec;
   const ac6=(ac||"#888888").slice(0,7);   // ← เพิ่มบรรทัดนี้
@@ -1722,10 +1268,10 @@ else{
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
           {[{label:"1 เดือน",price:"50",unit:"บาท"},{label:"6 เดือน",price:"240",unit:"บาท"},{label:"1 ปี",price:"365",unit:"บาท",best:true}].map(p=>(
             <div key={p.label} style={{border:p.best?`2px solid ${ac}`:"1px solid #eee",borderRadius:10,padding:"10px 8px",textAlign:"center",background:p.best?ac+"08":"#fafafa",position:"relative"}}>
-              {p.best&&<div style={{position:"absolute",top:-9,left:"50%",transform:"translateX(-50%)",background:ac,color:"#fff",fontSize:12,fontWeight:700,padding:"2px 8px",borderRadius:10,whiteSpace:"nowrap"}}>ประหยัดสุด</div>}
-              <div style={{fontSize:12,color:"#888",marginBottom:2}}>{p.label}</div>
+              {p.best&&<div style={{position:"absolute",top:-9,left:"50%",transform:"translateX(-50%)",background:ac,color:"#fff",fontSize:9,fontWeight:700,padding:"2px 8px",borderRadius:10,whiteSpace:"nowrap"}}>ประหยัดสุด</div>}
+              <div style={{fontSize:11,color:"#888",marginBottom:2}}>{p.label}</div>
               <div style={{fontFamily:"'Kanit',sans-serif",fontSize:22,fontWeight:800,color:p.best?ac:"#333"}}>{p.price}</div>
-              <div style={{fontSize:12,color:"#aaa"}}>{p.unit}</div>
+              <div style={{fontSize:10,color:"#aaa"}}>{p.unit}</div>
             </div>
           ))}
         </div>
@@ -1835,7 +1381,7 @@ else{
 >
   💸 แจ้งการโอนเงิน
 </button>
-<div style={{fontSize:12,color:"#e67e22",textAlign:"center",marginBottom:8}}>
+<div style={{fontSize:10,color:"#e67e22",textAlign:"center",marginBottom:8}}>
   * ระบบจะเปิดหน้าเขียนอีเมลพร้อมข้อความให้ กรุณาแนบสลิปก่อนกดส่ง
 </div>
         <button onClick={()=>setShowProPopup(false)} style={{width:"100%",padding:"8px",border:"1px solid #ddd",borderRadius:10,background:"#fff",color:"#888",cursor:"pointer",fontSize:12,marginBottom:6}}>ปิด</button>
@@ -1846,7 +1392,7 @@ else{
           else if(result===false){setProCheckMsg("❌ ยังไม่พบ License ใน Sheet");}
           else{setProCheckMsg("⏳ ลองอีกครั้งใน 5 นาที");}
         }} style={{width:"100%",padding:"8px",border:"none",borderRadius:10,background:"#f0f8ff",color:"#1565c0",cursor:"pointer",fontSize:12,fontWeight:600,marginBottom:4}}>🔄 ตรวจสอบสถานะ PRO อีกครั้ง</button>
-        {proCheckMsg&&<div style={{fontSize:12,textAlign:"center",color:proCheckMsg.startsWith("✅")?"#2e7d32":proCheckMsg.startsWith("❌")?"#c62828":"#f57f17",padding:"6px 10px",borderRadius:8,background:proCheckMsg.startsWith("✅")?"#e8f5e9":proCheckMsg.startsWith("❌")?"#fce4ec":"#fff8e1",marginBottom:4}}>{proCheckMsg}</div>}
+        {proCheckMsg&&<div style={{fontSize:11,textAlign:"center",color:proCheckMsg.startsWith("✅")?"#2e7d32":proCheckMsg.startsWith("❌")?"#c62828":"#f57f17",padding:"6px 10px",borderRadius:8,background:proCheckMsg.startsWith("✅")?"#e8f5e9":proCheckMsg.startsWith("❌")?"#fce4ec":"#fff8e1",marginBottom:4}}>{proCheckMsg}</div>}
       </div>
     </div>}
 
@@ -1855,7 +1401,7 @@ else{
       <span style={{fontSize:22,flexShrink:0}}>🆕</span>
       <div style={{flex:1}}>
         <div style={{fontFamily:"'Kanit',sans-serif",fontSize:13,fontWeight:600,color:"#fff"}}>มีเวอร์ชันใหม่พร้อมใช้งาน</div>
-        <div style={{fontSize:12,color:"rgba(255,255,255,.65)"}}>อัปเดตเพื่อรับฟีเจอร์และการปรับปรุงล่าสุด</div>
+        <div style={{fontSize:11,color:"rgba(255,255,255,.65)"}}>อัปเดตเพื่อรับฟีเจอร์และการปรับปรุงล่าสุด</div>
       </div>
       <button onClick={doUpdate} style={{padding:"8px 14px",borderRadius:9,border:"none",background:`linear-gradient(135deg,${ac},${fc2})`,color:"#fff",fontSize:12,fontWeight:700,fontFamily:"'Kanit',sans-serif",cursor:"pointer",flexShrink:0,boxShadow:`0 2px 8px ${ac}60`}}>🔄 อัปเดต</button>
       <button onClick={()=>setShowUpdate(false)} style={{padding:"6px",border:"none",background:"transparent",color:"rgba(255,255,255,.4)",cursor:"pointer",fontSize:15,flexShrink:0}}>✕</button>
@@ -1867,12 +1413,12 @@ else{
         <img src="./icons/icon-192x192.png" style={{width:40,height:40,borderRadius:10,objectFit:"cover"}} alt="Newsletter365"/>
         <div style={{flex:1}}>
           <div style={{fontFamily:"'Kanit',sans-serif",fontSize:14,fontWeight:600,color:"#333"}}>ติดตั้งเป็นแอพ</div>
-          <div style={{fontSize:12,color:"#888"}}>ใช้งานเต็มจอ ไม่มี URL bar เข้าใช้งานง่าย ไม่ต้องจำลิงค์</div>
+          <div style={{fontSize:11,color:"#888"}}>ใช้งานเต็มจอ ไม่มี URL bar เข้าใช้งานง่าย ไม่ต้องจำลิงค์</div>
         </div>
         <button onClick={()=>setShowInstall(false)} style={{padding:"6px",border:"none",background:"transparent",color:"#ccc",cursor:"pointer",fontSize:16,flexShrink:0}}>✕</button>
       </div>
       {installPrompt?<button onClick={doInstall} style={{width:"100%",marginTop:10,padding:"10px",border:"none",borderRadius:10,background:`linear-gradient(135deg,${ac},${fc2})`,color:"#fff",fontSize:14,fontWeight:600,fontFamily:"'Kanit',sans-serif",cursor:"pointer"}}>📲 ติดตั้งเลย</button>
-      :<div style={{marginTop:10,padding:"10px 14px",borderRadius:10,background:"#f8f8ff",fontSize:12,color:"#555",lineHeight:1.8}}>
+      :<div style={{marginTop:10,padding:"10px 14px",borderRadius:10,background:"#f8f8ff",fontSize:11,color:"#555",lineHeight:1.8}}>
         {(isIOS||isSafari)?<><b>Safari (iPhone/iPad):</b><br/>1. กดปุ่ม <span style={{fontSize:16}}>⎙</span> (แชร์) ด้านล่างของหน้าจอ<br/>2. เลื่อนลง แล้วกด <b>"เพิ่มไปยังหน้าจอโฮม"</b><br/>3. กด <b>"เพิ่ม"</b> มุมขวาบน</>
         :<><b>Android:</b> กดจุด 3 จุด ⋮ มุมขวาบน → เลือก <b>"ติดตั้งแอป"</b> หรือ <b>"เพิ่มไปยังหน้าจอหลัก"</b></>}
       </div>}
@@ -2009,37 +1555,35 @@ button:hover{filter:brightness(.96)}
 }
 `}</style>
     <div style={{display:"flex",flexDirection:"column",height:"100vh",fontFamily:"'Sarabun',sans-serif",background:"#f5f5fa",color:"#333"}}><div className="main-wrap">
-  <div className="form-col" ref={formColRef}
-  style={{...(formH?(isLandscape?{width:formH}:{height:formH}):{}),position:"relative"}} onTouchStart={e=>{const t=e.touches[0];if(formColRef.current?.scrollTop===0)formColRef.current._ptr={y:t.clientY,done:false}}} onTouchMove={e=>{const fc=formColRef.current;if(!fc?._ptr||fc._ptr.done)return;const dy=e.touches[0].clientY-fc._ptr.y;if(dy>80){fc._ptr.done=true;checkPro(true).then(r=>{if(r===true)setExportMsg("✅ PRO แล้ว!");else setExportMsg("🔄 Refreshed");setTimeout(()=>setExportMsg(""),2500);})}}} onTouchEnd={()=>{if(formColRef.current?._ptr)formColRef.current._ptr=null}}>
-    {/* Scroll arrows — left edge, up/down for mobile */}
-    {(()=>{const scrl=(dir)=>{const el=scrollAreaRef.current;if(!el)return;el.scrollBy({top:dir*el.clientHeight*0.45,behavior:"smooth"});};const mkHold=(dir)=>{let iv=null;return{onMouseDown:(e)=>{e.preventDefault();scrl(dir);iv=setInterval(()=>scrl(dir),400);},onMouseUp:()=>{clearInterval(iv);iv=null;},onMouseLeave:()=>{clearInterval(iv);iv=null;},onTouchStart:(e)=>{e.preventDefault();scrl(dir);iv=setInterval(()=>scrl(dir),400);},onTouchEnd:()=>{clearInterval(iv);iv=null;}};};const btnStyle={width:20,flex:"0 0 40px",background:"rgba(0,0,0,0.07)",border:"none",borderRight:"1px solid rgba(0,0,0,0.08)",color:"#666",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",userSelect:"none",touchAction:"none"};return(<div style={{position:"absolute",left:0,top:0,bottom:0,width:20,zIndex:50,display:"flex",flexDirection:"column",pointerEvents:"none"}}><button {...mkHold(-1)} style={{...btnStyle,pointerEvents:"auto",borderBottom:"1px solid rgba(0,0,0,0.06)"}}>▲</button><div style={{flex:1}}/><button {...mkHold(1)} style={{...btnStyle,pointerEvents:"auto",borderTop:"1px solid rgba(0,0,0,0.06)"}}>▼</button></div>);})()}
+  <div className="form-col" ref={formColRef} 
+  style={formH?(isLandscape?{width:formH}:{height:formH}):{}} onTouchStart={e=>{const t=e.touches[0];if(formColRef.current?.scrollTop===0)formColRef.current._ptr={y:t.clientY,done:false}}} onTouchMove={e=>{const fc=formColRef.current;if(!fc?._ptr||fc._ptr.done)return;const dy=e.touches[0].clientY-fc._ptr.y;if(dy>80){fc._ptr.done=true;checkPro(true).then(r=>{if(r===true)setExportMsg("✅ PRO แล้ว!");else setExportMsg("🔄 Refreshed");setTimeout(()=>setExportMsg(""),2500);})}}} onTouchEnd={()=>{if(formColRef.current?._ptr)formColRef.current._ptr=null}}>
     {/* Single scrollable area: title + theme + form */}
-    <div ref={scrollAreaRef} style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",paddingLeft:20}}>
+    <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
 
           {/* App title on theme gradient background */}
           <div style={{background:`linear-gradient(135deg,${ac},${fc2})`,padding:"16px 18px 14px",position:"relative",overflow:"hidden"}}>
             <div style={{position:"absolute",inset:0,background:"rgba(255,255,255,.08)"}}/>
             <div style={{position:"relative",fontFamily:"'Kanit',sans-serif",fontSize:22,fontWeight:700,display:"flex",alignItems:"center",gap:8,color:"#fff",textShadow:"0 2px 8px rgba(0,0,0,.15)"}}>
-              <img src="./icons/icon-192x192.png" style={{width:28,height:28,borderRadius:7,objectFit:"cover",flexShrink:0}} alt="logo"/> Newsletter365<span style={{fontSize:12,fontWeight:400,opacity:0.7,marginLeft:4}}>V 1.1</span>
-              {isPro?<span style={{fontSize:12,background:"linear-gradient(135deg,#f39c12,#e67e22)",color:"#fff",padding:"2px 10px",borderRadius:10,fontFamily:"'Sarabun',sans-serif",fontWeight:600}}>⭐ PRO{proExpiry?` (${proExpiry})`:""}</span>:<span style={{fontSize:12,background:"rgba(255,255,255,.25)",color:"#fff",padding:"2px 10px",borderRadius:10,fontFamily:"'Sarabun',sans-serif"}}>FREE</span>}
+              <img src="./icons/icon-192x192.png" style={{width:28,height:28,borderRadius:7,objectFit:"cover",flexShrink:0}} alt="logo"/> Newsletter365<span style={{fontSize:10,fontWeight:400,opacity:0.7,marginLeft:4}}>V 1.1</span>
+              {isPro?<span style={{fontSize:10,background:"linear-gradient(135deg,#f39c12,#e67e22)",color:"#fff",padding:"2px 10px",borderRadius:10,fontFamily:"'Sarabun',sans-serif",fontWeight:600}}>⭐ PRO{proExpiry?` (${proExpiry})`:""}</span>:<span style={{fontSize:10,background:"rgba(255,255,255,.25)",color:"#fff",padding:"2px 10px",borderRadius:10,fontFamily:"'Sarabun',sans-serif"}}>FREE</span>}
             </div>
-            <div style={{position:"relative",fontSize:12,color:"rgba(255,255,255,.75)",marginTop:2}}>ข่าวไว ทันใจ นำหน้าทุกการสื่อสาร  </div>
+            <div style={{position:"relative",fontSize:11,color:"rgba(255,255,255,.75)",marginTop:2}}>ข่าวไว ทันใจ นำหน้าทุกการสื่อสาร  </div>
           </div>
 
           {/* Theme settings */}
           <div style={{padding:"14px 18px 0"}}>
-            <div style={{fontSize:12,color:"#888",marginBottom:5}}>🎨 เฉดสี</div>
+            <div style={{fontSize:11,color:"#888",marginBottom:5}}>🎨 เฉดสี</div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:5,marginBottom:10}}>
-              {Object.entries(COLORS).map(([k,v])=>(<button key={k} onClick={()=>{setCk(k);setHue(0);setBrightness(100);setSaturation(100);}} style={{padding:"5px 0",borderRadius:8,border:ck===k?`2px solid ${v.pri}`:"2px solid #e8e8e8",background:ck===k?v.pri+"12":"#fafafa",color:ck===k?"#333":"#999",cursor:"pointer",fontSize:12,fontFamily:"'Sarabun',sans-serif",display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+              {Object.entries(COLORS).map(([k,v])=>(<button key={k} onClick={()=>{setCk(k);setHue(0);setBrightness(100);setSaturation(100);}} style={{padding:"5px 0",borderRadius:8,border:ck===k?`2px solid ${v.pri}`:"2px solid #e8e8e8",background:ck===k?v.pri+"12":"#fafafa",color:ck===k?"#333":"#999",cursor:"pointer",fontSize:9,fontFamily:"'Sarabun',sans-serif",display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
                 <img src={dropSvg(v.h1,v.h2)} width={20} height={28} alt="" style={{filter:ck===k?"drop-shadow(0 2px 4px rgba(0,0,0,.2))":"none"}}/>
                 <div>{v.name}</div>
               </button>))}
             </div>
-            <div style={{fontSize:12,color:"#888",marginBottom:5}}>✦ สไตล์ <span style={{fontSize:12,color:"#ccc"}}>(เลื่อนข้าง →)</span></div>
+            <div style={{fontSize:11,color:"#888",marginBottom:5}}>✦ สไตล์ <span style={{fontSize:9,color:"#ccc"}}>(เลื่อนข้าง →)</span></div>
             <div style={{display:"flex",gap:5,marginBottom:10,overflowX:"auto",paddingBottom:4,WebkitOverflowScrolling:"touch"}}>
-              {Object.entries(STYLES).map(([k,v])=>(<button key={k} onClick={()=>setSk(k)} style={{flexShrink:0,padding:"6px 12px",borderRadius:8,border:sk===k?`2px solid ${ac}`:"2px solid #e8e8e8",background:sk===k?ac+"10":"#fafafa",color:sk===k?"#333":"#888",cursor:"pointer",fontSize:12,fontFamily:"'Sarabun',sans-serif",position:"relative"}}>
+              {Object.entries(STYLES).map(([k,v])=>(<button key={k} onClick={()=>setSk(k)} style={{flexShrink:0,padding:"6px 12px",borderRadius:8,border:sk===k?`2px solid ${ac}`:"2px solid #e8e8e8",background:sk===k?ac+"10":"#fafafa",color:sk===k?"#333":"#888",cursor:"pointer",fontSize:11,fontFamily:"'Sarabun',sans-serif",position:"relative"}}>
                 {v.icon} {v.name}
-               {v.pro&&!isPro&&<span style={{position:"absolute",top:-8, right:-8, fontSize:12, fontWeight:800, letterSpacing:0.6, background:"linear-gradient(135deg,#ffb84d,#ff7a18)", color:"#fff", padding:"3px 8px", borderRadius:999, boxShadow:"0 4px 12px rgba(0,0,0,.18)",  border:"1px solid rgba(255,255,255,.55)"}}>PRO</span>}
+               {v.pro&&!isPro&&<span style={{position:"absolute",top:-8, right:-8, fontSize:10, fontWeight:800, letterSpacing:0.6, background:"linear-gradient(135deg,#ffb84d,#ff7a18)", color:"#fff", padding:"3px 8px", borderRadius:999, boxShadow:"0 4px 12px rgba(0,0,0,.18)",  border:"1px solid rgba(255,255,255,.55)"}}>PRO</span>}
               </button>))}
             </div>
 
@@ -2055,31 +1599,31 @@ button:hover{filter:brightness(.96)}
   :`linear-gradient(135deg,${ac6}18,${fc6}18)`,
   color:showColorCtrl?"#fff":ac6,
   cursor:"pointer",
-  fontSize:12,
+  fontSize:11,
   fontFamily:"'Kanit',sans-serif",
   display:"flex",
   alignItems:"center",
   justifyContent:"space-between"
 }}>
-                <span>🎨 กำหนดสีเอง {!isPro&&<span style={{  fontSize:16,  fontWeight:800,  letterSpacing:0.6,  color:"#fff",  background:"linear-gradient(135deg,#ffb84d,#ff7a18)",  padding:"3px 8px",  borderRadius:999,  marginLeft:6,  boxShadow:"0 4px 12px rgba(0,0,0,.16)",  border:"1px solid rgba(255,255,255,.55)"}}>PRO</span>}</span> <span style={{fontSize:30,lineHeight:1,transform:showColorCtrl?"rotate(180deg)":"none",transition:"transform .2s"}}>▾</span>
+                <span>🎨 กำหนดสีเอง/แทรกภาพส่วนหัว {!isPro&&<span style={{  fontSize:10,  fontWeight:800,  letterSpacing:0.6,  color:"#fff",  background:"linear-gradient(135deg,#ffb84d,#ff7a18)",  padding:"3px 8px",  borderRadius:999,  marginLeft:6,  boxShadow:"0 4px 12px rgba(0,0,0,.16)",  border:"1px solid rgba(255,255,255,.55)"}}>PRO</span>}</span> <span style={{fontSize:30,lineHeight:1,transform:showColorCtrl?"rotate(180deg)":"none",transition:"transform .2s"}}>▾</span>
               </button>
               {showColorCtrl&&<div style={{padding:"10px 0",borderBottom:"1px solid #eee"}}>
                 {/* Hue */}
-                <div style={{fontSize:12,color:"#888",marginBottom:4}}>🎛️ Hue (โทนสี)</div>
+                <div style={{fontSize:10,color:"#888",marginBottom:4}}>🎛️ Hue (โทนสี)</div>
                 <input type="range" min="-180" max="180" value={hue} onChange={e=>setHue(Number(e.target.value))} style={{width:"100%",height:8,borderRadius:4,appearance:"none",background:`linear-gradient(90deg,#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)`,cursor:"pointer"}}/>
-                <div style={{fontSize:12,color:ac,textAlign:"center",marginTop:1}}>{hue}°{hue!==0&&<button onClick={()=>setHue(0)} style={{marginLeft:6,padding:"1px 6px",border:"1px solid #ddd",borderRadius:8,background:"#fafafa",color:"#888",cursor:"pointer",fontSize:8}}>Reset</button>}</div>
+                <div style={{fontSize:9,color:ac,textAlign:"center",marginTop:1}}>{hue}°{hue!==0&&<button onClick={()=>setHue(0)} style={{marginLeft:6,padding:"1px 6px",border:"1px solid #ddd",borderRadius:8,background:"#fafafa",color:"#888",cursor:"pointer",fontSize:8}}>Reset</button>}</div>
                 {/* Brightness */}
-                <div style={{fontSize:12,color:"#888",marginTop:8,marginBottom:4}}>☀️ Brightness (ความสว่าง)</div>
+                <div style={{fontSize:10,color:"#888",marginTop:8,marginBottom:4}}>☀️ Brightness (ความสว่าง)</div>
                 <input type="range" min="25" max="300" value={brightness} onChange={e=>setBrightness(Number(e.target.value))} style={{width:"100%",height:8,borderRadius:4,appearance:"none",background:`linear-gradient(90deg,#333,#fff,#ffe)`,cursor:"pointer"}}/>
-                <div style={{fontSize:12,color:"#888",textAlign:"center",marginTop:1}}>{brightness}%{brightness!==100&&<button onClick={()=>setBrightness(100)} style={{marginLeft:6,padding:"1px 6px",border:"1px solid #ddd",borderRadius:8,background:"#fafafa",color:"#888",cursor:"pointer",fontSize:8}}>Reset</button>}</div>
+                <div style={{fontSize:9,color:"#888",textAlign:"center",marginTop:1}}>{brightness}%{brightness!==100&&<button onClick={()=>setBrightness(100)} style={{marginLeft:6,padding:"1px 6px",border:"1px solid #ddd",borderRadius:8,background:"#fafafa",color:"#888",cursor:"pointer",fontSize:8}}>Reset</button>}</div>
                 {/* Saturation */}
-                <div style={{fontSize:12,color:"#888",marginTop:8,marginBottom:4}}>💧 Saturation (ความอิ่มสี)</div>
+                <div style={{fontSize:10,color:"#888",marginTop:8,marginBottom:4}}>💧 Saturation (ความอิ่มสี)</div>
                 <input type="range" min="0" max="200" value={saturation} onChange={e=>setSaturation(Number(e.target.value))} style={{width:"100%",height:8,borderRadius:4,appearance:"none",background:`linear-gradient(90deg,#ccc,${ac},${ac}ff)`,cursor:"pointer"}}/>
-                <div style={{fontSize:12,color:"#888",textAlign:"center",marginTop:1}}>{saturation}%{saturation!==100&&<button onClick={()=>setSaturation(100)} style={{marginLeft:6,padding:"1px 6px",border:"1px solid #ddd",borderRadius:8,background:"#fafafa",color:"#888",cursor:"pointer",fontSize:8}}>Reset</button>}</div>
+                <div style={{fontSize:9,color:"#888",textAlign:"center",marginTop:1}}>{saturation}%{saturation!==100&&<button onClick={()=>setSaturation(100)} style={{marginLeft:6,padding:"1px 6px",border:"1px solid #ddd",borderRadius:8,background:"#fafafa",color:"#888",cursor:"pointer",fontSize:8}}>Reset</button>}</div>
                 {/* Vibrance */}
-                <div style={{fontSize:12,color:"#888",marginTop:8,marginBottom:4}}>✨ Vibrance (ความสดใสสี)</div>
+                <div style={{fontSize:10,color:"#888",marginTop:8,marginBottom:4}}>✨ Vibrance (ความสดใสสี)</div>
                 <input type="range" min="0" max="200" value={vibrance} onChange={e=>setVibrance(Number(e.target.value))} style={{width:"100%",height:8,borderRadius:4,appearance:"none",background:`linear-gradient(90deg,#888 0%,${ac} 50%,#fff 100%)`,cursor:"pointer"}}/>
-                <div style={{fontSize:12,color:"#888",textAlign:"center",marginTop:1}}>{vibrance}%{vibrance!==100&&<button onClick={()=>setVibrance(100)} style={{marginLeft:6,padding:"1px 6px",border:"1px solid #ddd",borderRadius:8,background:"#fafafa",color:"#888",cursor:"pointer",fontSize:8}}>Reset</button>}</div>
+                <div style={{fontSize:9,color:"#888",textAlign:"center",marginTop:1}}>{vibrance}%{vibrance!==100&&<button onClick={()=>setVibrance(100)} style={{marginLeft:6,padding:"1px 6px",border:"1px solid #ddd",borderRadius:8,background:"#fafafa",color:"#888",cursor:"pointer",fontSize:8}}>Reset</button>}</div>
               </div>}
             </div>{/* end collapsible */}
 
@@ -2090,16 +1634,16 @@ button:hover{filter:brightness(.96)}
               const parseStopsPv=(g)=>g.replace(/linear-gradient\([^,]+,/,"").replace(/\)$/,"").split(",").map(s=>s.trim()).filter(s=>s.startsWith("#")||s.startsWith("rgb"));
               const stopsPv=parseStopsPv(gStrPv);const c1Pv=stopsPv[0]||ac;const c2Pv=stopsPv[stopsPv.length-1]||fc2;const midPv=stopsPv.length>2?stopsPv[Math.floor(stopsPv.length/2)]:null;
               const mkBtnGrad=(deg)=>midPv?`linear-gradient(${deg}deg,${c1Pv},${midPv},${c2Pv})`:`linear-gradient(${deg}deg,${c1Pv},${c2Pv})`;
-              const sl=(lbl,val,mn,mx,bg,setFn)=>(<div style={{marginBottom:5}}><div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:12,color:"#777",flex:1}}>{lbl}</span><span style={{fontSize:12,color:"#888",minWidth:24,textAlign:"right"}}>{val}{lbl.includes("Hue")?"°":"%"}</span>{val!==(lbl.includes("Hue")?0:100)&&<button onClick={()=>setFn(lbl.includes("Hue")?0:100)} style={{fontSize:12,padding:"1px 4px",border:"1px solid #ddd",borderRadius:6,background:"#fafafa",color:"#888",cursor:"pointer"}}>↺</button>}</div><input type="range" min={mn} max={mx} value={val} onChange={e=>setFn(Number(e.target.value))} style={{width:"100%",height:7,borderRadius:4,appearance:"none",background:bg,cursor:"pointer"}}/></div>);
-              const bgBtn=(lbl,on,setFn)=>(<button onClick={()=>setFn(!on)} style={{flex:1,padding:"4px 0",borderRadius:7,border:`1px solid ${on?ac:"#ddd"}`,background:on?`${ac}15`:"#fafafa",color:on?ac:"#999",cursor:"pointer",fontSize:12,fontWeight:600,transition:"all .15s"}}>{on?"✓":"✗"} {lbl}</button>);
-              return(<div id="fs-strip" style={{marginTop:6,padding:"8px 0 2px",borderTop:"1px solid #f0f0f0"}}>
-                <button onClick={()=>setShowStripCtrl(v=>!v)} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",border:`1px solid ${ac}30`,borderRadius:8,padding:"5px 10px",background:showStripCtrl?`linear-gradient(135deg,${ac6},${fc6})`:`${ac}10`,color:showStripCtrl?"#fff":ac,cursor:"pointer",fontSize:12,fontFamily:"'Kanit',sans-serif",transition:"all .2s"}}>
-                  <span>🎨 กำหนดสีแถบคาด และเปิด/ปิดพื้นหลัง</span><span style={{fontSize:30,lineHeight:1,transform:showStripCtrl?"rotate(180deg)":"none",transition:"transform .2s"}}>▾</span>
+              const sl=(lbl,val,mn,mx,bg,setFn)=>(<div style={{marginBottom:5}}><div style={{display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:9,color:"#777",flex:1}}>{lbl}</span><span style={{fontSize:9,color:"#888",minWidth:24,textAlign:"right"}}>{val}{lbl.includes("Hue")?"°":"%"}</span>{val!==(lbl.includes("Hue")?0:100)&&<button onClick={()=>setFn(lbl.includes("Hue")?0:100)} style={{fontSize:8,padding:"1px 4px",border:"1px solid #ddd",borderRadius:6,background:"#fafafa",color:"#888",cursor:"pointer"}}>↺</button>}</div><input type="range" min={mn} max={mx} value={val} onChange={e=>setFn(Number(e.target.value))} style={{width:"100%",height:7,borderRadius:4,appearance:"none",background:bg,cursor:"pointer"}}/></div>);
+              const bgBtn=(lbl,on,setFn)=>(<button onClick={()=>setFn(!on)} style={{flex:1,padding:"4px 0",borderRadius:7,border:`1px solid ${on?ac:"#ddd"}`,background:on?`${ac}15`:"#fafafa",color:on?ac:"#999",cursor:"pointer",fontSize:9,fontWeight:600,transition:"all .15s"}}>{on?"✓":"✗"} {lbl}</button>);
+              return(<div style={{marginTop:6,padding:"8px 0 2px",borderTop:"1px solid #f0f0f0"}}>
+                <button onClick={()=>setShowStripCtrl(v=>!v)} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",border:`1px solid ${ac}30`,borderRadius:8,padding:"5px 10px",background:showStripCtrl?`linear-gradient(135deg,${ac6},${fc6})`:`${ac}10`,color:showStripCtrl?"#fff":ac,cursor:"pointer",fontSize:11,fontFamily:"'Kanit',sans-serif",transition:"all .2s"}}>
+                  <span>🎨 สี Strip และพื้นหลัง</span><span style={{fontSize:30,lineHeight:1,transform:showStripCtrl?"rotate(180deg)":"none",transition:"transform .2s"}}>▾</span>
                 </button>
                 {showStripCtrl&&<div style={{paddingTop:8}}>
-                  <div style={{fontSize:12,color:"#666",fontWeight:600,marginBottom:4}}>ทิศทางสี Gradient แถบคาด</div>
+                  <div style={{fontSize:10,color:"#666",fontWeight:600,marginBottom:4}}>ทิศทาง Gradient Strip</div>
                   <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
-                    <button onClick={()=>setStripGradOn(v=>!v)} style={{display:"flex",alignItems:"center",gap:4,padding:"3px 10px",borderRadius:999,border:`1px solid ${stripGradOn?ac:"#ddd"}`,background:stripGradOn?`${ac}15`:"#fafafa",color:stripGradOn?ac:"#bbb",cursor:"pointer",fontSize:12,fontWeight:600,flexShrink:0,transition:"all .15s"}}>
+                    <button onClick={()=>setStripGradOn(v=>!v)} style={{display:"flex",alignItems:"center",gap:4,padding:"3px 10px",borderRadius:999,border:`1px solid ${stripGradOn?ac:"#ddd"}`,background:stripGradOn?`${ac}15`:"#fafafa",color:stripGradOn?ac:"#bbb",cursor:"pointer",fontSize:10,fontWeight:600,flexShrink:0,transition:"all .15s"}}>
                       <span style={{width:22,height:12,borderRadius:6,background:stripGradOn?ac:"#ddd",display:"inline-block",position:"relative",transition:"background .15s",flexShrink:0}}><span style={{position:"absolute",top:2,left:stripGradOn?10:2,width:8,height:8,borderRadius:"50%",background:"#fff",transition:"left .15s"}}/></span>
                       {stripGradOn?"เปิด":"ปิด"}
                     </button>
@@ -2107,22 +1651,16 @@ button:hover{filter:brightness(.96)}
                   <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:4,opacity:stripGradOn?1:0.35,pointerEvents:stripGradOn?"auto":"none",transition:"opacity .2s",marginBottom:8}}>
                     {dirs.map(({k,label,deg})=>{const btnGrad=stripGradOn?mkBtnGrad(deg):`${ac}12`;const isActive=stripGradDir===k;return(<button key={k} onClick={()=>setStripGradDir(k)} title={label} style={{height:28,borderRadius:8,border:isActive?`2px solid ${ac}`:"1px solid rgba(0,0,0,.1)",background:btnGrad,cursor:"pointer",outline:isActive?`2px solid ${ac}`:"none",outlineOffset:2,boxShadow:isActive?"0 0 0 3px rgba(0,0,0,.08)":"none",transition:"outline .1s,box-shadow .1s"}}/>);})}
                   </div>
-                  <div style={{fontSize:12,color:"#666",fontWeight:600,marginBottom:4}}>ปรับสีของแถบคาดส่วนหัว ส่วนท้าย</div>
-                  <div style={{display:"flex",gap:4,marginBottom:6}}>
-                    {[["both","ทั้งสอง"],["top","แถบคาดส่วนหัว ▲"],["bot","แถบคาดส่วนท้าย ▼"]].map(([m,lbl])=>(
-                      <button key={m} onClick={()=>setStripAdjMode(m)} style={{flex:1,padding:"3px 0",borderRadius:7,border:`1px solid ${stripAdjMode===m?ac:"#ddd"}`,background:stripAdjMode===m?`${ac}15`:"#fafafa",color:stripAdjMode===m?ac:"#999",cursor:"pointer",fontSize:12,fontWeight:600}}>{lbl}</button>
-                    ))}
-                  </div>
-                  {(()=>{const curH=stripAdjMode==="bot"?stripBotHue:stripTopHue;const curBrt=stripAdjMode==="bot"?stripBotBrt:stripTopBrt;const curSat=stripAdjMode==="bot"?stripBotSat:stripTopSat;const curVib=stripAdjMode==="bot"?stripBotVib:stripTopVib;
-                    const setH=(v)=>{if(stripAdjMode!=="bot")setStripTopHue(v);if(stripAdjMode!=="top")setStripBotHue(v);};
-                    const setBrt=(v)=>{if(stripAdjMode!=="bot")setStripTopBrt(v);if(stripAdjMode!=="top")setStripBotBrt(v);};
-                    const setSat=(v)=>{if(stripAdjMode!=="bot")setStripTopSat(v);if(stripAdjMode!=="top")setStripBotSat(v);};
-                    const setVib=(v)=>{if(stripAdjMode!=="bot")setStripTopVib(v);if(stripAdjMode!=="top")setStripBotVib(v);};
-                    return(<>{sl("Hue",curH,-180,180,"linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)",setH)}{sl("Brightness",curBrt,25,300,"linear-gradient(90deg,#333,#fff)",setBrt)}{sl("Saturation",curSat,0,200,`linear-gradient(90deg,#ccc,${ac})`,setSat)}{sl("Vibrance",curVib,0,200,`linear-gradient(90deg,#888,${ac},#fff)`,setVib)}</>);
-                  })()}
-                  <div style={{fontSize:12,color:"#666",fontWeight:600,marginBottom:4,marginTop:6}}>เลือกเปิดปิดพื้นหลัง</div>
+                  <div style={{fontSize:10,color:"#666",fontWeight:600,marginBottom:4}}>สีของ Strip (อิสระจาก Theme)</div>
+                  {sl("Hue",stripHue,-180,180,"linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)",setStripHue)}
+                  {sl("Brightness",stripBrt,25,300,"linear-gradient(90deg,#333,#fff)",setStripBrt)}
+                  {sl("Saturation",stripSat,0,200,`linear-gradient(90deg,#ccc,${ac})`,setStripSat)}
+                  {sl("Vibrance",stripVib,0,200,`linear-gradient(90deg,#888,${ac},#fff)`,setStripVib)}
+                  <div style={{fontSize:10,color:"#666",fontWeight:600,marginBottom:4,marginTop:6}}>พื้นหลัง</div>
                   <div style={{display:"flex",gap:4,marginBottom:4,flexWrap:"wrap"}}>{bgBtn("ส่วนหัว",showHdrBg,setShowHdrBg)}{bgBtn("เนื้อหา",showBodyBg,setShowBodyBg)}{bgBtn("ส่วนท้าย",showFtrBg,setShowFtrBg)}{bgBtn("ลวดลาย",showBgPat,setShowBgPat)}</div>
-                  <button onClick={()=>{if(!window.confirm("รีเซ็ต Strip และพื้นหลังทั้งหมด?"))return;setStripHue(0);setStripBrt(100);setStripSat(100);setStripVib(100);setStripTopHue(0);setStripTopBrt(100);setStripTopSat(100);setStripTopVib(100);setStripBotHue(0);setStripBotBrt(100);setStripBotSat(100);setStripBotVib(100);setShowHdrBg(true);setShowBodyBg(true);setShowFtrBg(true);setShowBgPat(true);setShowProfileBg(true);setStripTopOffY(0);setStripBotOffY(0);}} style={{width:"100%",padding:"6px",border:`1px solid ${ac}30`,borderRadius:8,background:`${ac}06`,color:ac,cursor:"pointer",fontSize:12,marginTop:2,fontFamily:"'Sarabun',sans-serif"}}>↺ reset ตำแหน่ง</button>
+                  <div style={{fontSize:10,color:"#666",fontWeight:600,marginBottom:4}}>U-shape</div>
+                  <div style={{display:"flex",gap:4,marginBottom:4}}>{bgBtn("โปรไฟล์",showProfileBg,setShowProfileBg)}{bgBtn("โลโก้",showLogoBg,setShowLogoBg)}</div>
+                  <button onClick={()=>{setStripHue(0);setStripBrt(100);setStripSat(100);setStripVib(100);setShowHdrBg(true);setShowBodyBg(true);setShowFtrBg(true);setShowBgPat(true);setShowProfileBg(true);setShowLogoBg(true);}} style={{width:"100%",padding:"6px",border:`1px solid ${ac}30`,borderRadius:8,background:`${ac}06`,color:ac,cursor:"pointer",fontSize:14,marginTop:2,fontFamily:"'Sarabun',sans-serif"}}>reset ตำแหน่งเริ่มต้น</button>
                 </div>}
               </div>);
             })()}
@@ -2131,113 +1669,64 @@ button:hover{filter:brightness(.96)}
           {/* Divider */}
           <div style={{height:1,background:"#eee",margin:"0 18px"}}/>
 
-          {/* ── ภาพตกแต่ง 6 ภาพ ── */}
-          {(()=>{
-            const updDeco=(i,patch)=>setDecoImgs(p=>p.map((img,j)=>j===i?{...img,...patch}:img));
-            return(
-            <div id="fs-deco" style={{padding:"10px 18px 0"}}>
-              <div style={{border:`1.5px solid ${ac}30`,borderRadius:14,padding:"10px 12px 8px",marginBottom:10,background:`${ac}04`}}>
-                <div className="sec-t" style={{color:ac,fontFamily:"'Kanit',sans-serif",fontWeight:600,fontSize:13,marginBottom:8}}>🖼️ ภาพตกแต่ง 9 ภาพ </div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
-                  {decoImgs.map((img,i)=>(
-                    <div key={i} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"6px 4px",borderRadius:10,border:`1px solid ${img?.url?ac+"40":"#eee"}`,background:img?.url?`${ac}08`:"#fafafa"}}>
-                      {/* thumbnail / upload button */}
-                      <div onClick={()=>{if(!img?.url)decoFileRefs[i].current?.click();}} style={{width:56,height:56,borderRadius:8,overflow:"hidden",border:`1px solid ${img?.url?"#ddd":"#d0d0d0"}`,position:"relative",background:"#f0f0f0",display:"flex",alignItems:"center",justifyContent:"center",cursor:img?.url?"default":"pointer"}}>
-                        {img?.url
-                          ?<img src={img.url} style={{width:"100%",height:"100%",objectFit:"contain"}} alt=""/>
-                          :<span style={{fontSize:22,color:"#ccc"}}>+</span>}
-                        {img?.url&&<button onClick={e=>{e.stopPropagation();updDeco(i,{url:"",visible:true});}} style={{position:"absolute",top:-1,right:-1,width:16,height:16,borderRadius:"50%",background:"rgba(0,0,0,.55)",border:"none",color:"#fff",cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>✕</button>}
-                      </div>
-                      {/* hidden file input */}
-                      <input ref={decoFileRefs[i]} type="file" accept="image/*"
-                        onChange={e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=ev=>updDeco(i,{url:ev.target.result});r.readAsDataURL(f);e.target.value="";}}
-                        style={{display:"none"}}/>
-                      {/* upload / slot label */}
-                      <button onClick={()=>img?.url?null:decoFileRefs[i].current?.click()}
-                        style={{fontSize:12,color:img?.url?ac:"#aaa",background:"none",border:"none",cursor:img?.url?"default":"pointer",padding:0,fontFamily:"'Sarabun',sans-serif"}}>
-                        {img?.url?`ภาพ ${i+1}`:`+ ภาพ ${i+1}`}
-                      </button>
-                      {img?.url&&(<>
-                        {/* visible toggle */}
-                        <button onClick={()=>updDeco(i,{visible:!img.visible})}
-                          style={{fontSize:12,padding:"1px 6px",borderRadius:6,border:`1px solid ${img.visible?ac:"#ccc"}`,background:img.visible?`${ac}15`:"#f5f5f5",color:img.visible?ac:"#aaa",cursor:"pointer",width:"100%"}}>
-                          {img.visible?"👁 แสดง":"🚫 ซ่อน"}
-                        </button>
-                        {/* layer control */}
-                        <div style={{display:"flex",alignItems:"center",gap:3,width:"100%",justifyContent:"center"}}>
-                          <button onClick={()=>updDeco(i,{layer:Math.max(0,img.layer-1)})}
-                            style={{width:18,height:18,borderRadius:4,border:"1px solid #ddd",background:"#fff",color:"#666",cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>↓</button>
-                          <span style={{fontSize:12,color:img.layer===0?"#e74c3c":"#888",minWidth:36,textAlign:"center"}}>{img.layer===0?"ใต้body":`ระดับที่${img.layer}`}</span>
-                          <button onClick={()=>updDeco(i,{layer:Math.min(19,img.layer+1)})}
-                            style={{width:18,height:18,borderRadius:4,border:"1px solid #ddd",background:"#fff",color:"#666",cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>↑</button>
-                        </div>
-                        {/* size display */}
-                        <span style={{fontSize:12,color:"#bbb"}}>{Math.round(img.w)}×{Math.round(img.h)}</span>
-                        {/* replace button */}
-                        <button onClick={()=>decoFileRefs[i].current?.click()}
-                          style={{fontSize:12,padding:"1px 6px",borderRadius:6,border:"1px solid #ddd",background:"#fafafa",color:"#888",cursor:"pointer",width:"100%"}}>🔄 เปลี่ยน</button>
-                      </>)}
-                    </div>
-                  ))}
-                </div>
-                <button onClick={()=>setDecoImgs(p=>p.map((img,i)=>({...img,x:40+(i%3)*130,y:180+Math.floor(i/3)*130,rot:0})))}
-                  style={{width:"100%",marginTop:8,padding:"5px",border:`1px solid ${ac}30`,borderRadius:8,background:`${ac}06`,color:ac,cursor:"pointer",fontSize:12,fontFamily:"'Sarabun',sans-serif"}}>
-                  ↺ reset ตำแหน่งภาพตกแต่ง
-                </button>
-              </div>
-            </div>);
-          })()}
-
           {/* Form fields */}
-          <div style={{padding:"0 18px 0"}}>
+          <div style={{padding:"14px 18px 0"}}>
           {/* ── ส่วนหัว: หน่วยงาน + ผู้บริหาร ── */}
           <div style={{border:`1.5px solid ${ac}30`,borderRadius:14,padding:"10px 12px 4px",marginBottom:14,background:`${ac}04`}}>
-          <div id="fs-header" className="sec"><div className="sec-t" style={{color:ac}}>🏢 ข้อมูลองค์กร/หน่วยงาน</div>
-          <div className="fld"><div style={{display:"flex",alignItems:"center",marginBottom:4,gap:6}}><Label c={ac}>ชื่อจดหมายข่าว</Label><RGBPick val={d.headerTitleColor||"#ffffff"} onChange={v=>set("headerTitleColor",v)}/></div><div style={{display:"flex",gap:6,alignItems:"center"}}><div style={{flex:1}}><Input value={d.headerTitle} onChange={v=>set("headerTitle",v)} placeholder="ประชาสัมพันธ์" ac={ac}/></div><div style={{display:"flex",alignItems:"center",gap:2,flexShrink:0}}><button onClick={()=>set("headerTitleSize",Math.max(20,(d.headerTitleSize||38)-2))} style={{width:28,height:28,borderRadius:6,border:"1px solid #ddd",background:"#fafafa",color:"#888",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button><span style={{fontSize:12,color:"#888",minWidth:28,textAlign:"center"}}>{d.headerTitleSize||38}</span><button onClick={()=>set("headerTitleSize",Math.min(50,(d.headerTitleSize||38)+2))} style={{width:28,height:28,borderRadius:6,border:"1px solid #ddd",background:"#fafafa",color:"#888",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button></div></div></div>
+          <div className="sec"><div className="sec-t" style={{color:ac}}>🏢 ข้อมูลองค์กร/หน่วยงาน</div>
+          <div className="fld"><div style={{display:"flex",alignItems:"center",marginBottom:4,gap:6}}><Label c={ac}>ชื่อจดหมายข่าว</Label><RGBPick val={d.headerTitleColor||"#ffffff"} onChange={v=>set("headerTitleColor",v)}/></div><div style={{display:"flex",gap:6,alignItems:"center"}}><div style={{flex:1}}><Input value={d.headerTitle} onChange={v=>set("headerTitle",v)} placeholder="ประชาสัมพันธ์" ac={ac}/></div><div style={{display:"flex",alignItems:"center",gap:2,flexShrink:0}}><button onClick={()=>set("headerTitleSize",Math.max(20,(d.headerTitleSize||38)-2))} style={{width:28,height:28,borderRadius:6,border:"1px solid #ddd",background:"#fafafa",color:"#888",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button><span style={{fontSize:10,color:"#888",minWidth:28,textAlign:"center"}}>{d.headerTitleSize||38}</span><button onClick={()=>set("headerTitleSize",Math.min(50,(d.headerTitleSize||38)+2))} style={{width:28,height:28,borderRadius:6,border:"1px solid #ddd",background:"#fafafa",color:"#888",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button></div></div></div>
           <div className="fld"><div style={{display:"flex",alignItems:"center",marginBottom:4}}><Label c={ac}>ชื่อหน่วยงาน *</Label><ColorPick val={d.tcOrgName} onChange={v=>set("tcOrgName",v)} ac={ac}/><SzBtn val={d.fsOrgName} def={28} onChange={v=>set("fsOrgName",v)}/></div><Input value={d.orgName} onChange={v=>set("orgName",v)} placeholder="" ac={ac} voice/></div>
           <div className="fld"><div style={{display:"flex",alignItems:"center",marginBottom:4}}><Label c={ac}>หน่วยงานย่อย</Label><ColorPick val={d.tcSubOrg} onChange={v=>set("tcSubOrg",v)} ac={ac}/><SzBtn val={d.fsSubOrg} def={24} onChange={v=>set("fsSubOrg",v)}/></div><Input value={d.subOrg} onChange={v=>set("subOrg",v)} placeholder="" ac={ac} voice/></div>
           <div style={{display:"flex",gap:10}}>
-                <div style={{flex:1}}><ImgUp label="ภาพโปรไฟล์/ภาพผู้บริหาร" icon="👤" src={d.profileUrl} onUpload={v=>set("profileUrl",v)} onRemove={()=>set("profileUrl","")} ac={ac} h={65}/>
+                <div style={{flex:1}}><ImgUp label="โปรไฟล์" icon="👤" src={d.profileUrl} onUpload={v=>set("profileUrl",v)} onRemove={()=>set("profileUrl","")} ac={ac} h={65}/>
                 <div style={{display:"flex",alignItems:"center",gap:3,marginTop:4}}>
-                  <span style={{fontSize:12,color:"#888"}}>ขนาด</span>
-                  <button onClick={()=>set("profileSize",Math.max(60,(d.profileSize||116)-8))} style={{width:20,height:20,borderRadius:5,border:"1px solid #ddd",background:"#fafafa",color:"#888",cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
-                  <span style={{fontSize:12,color:"#888",minWidth:20,textAlign:"center"}}>{d.profileSize||116}</span>
-                  <button onClick={()=>set("profileSize",Math.min(160,(d.profileSize||116)+8))} style={{width:20,height:20,borderRadius:5,border:"1px solid #ddd",background:"#fafafa",color:"#888",cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                  <span style={{fontSize:9,color:"#888"}}>ขนาด</span>
+                  <button onClick={()=>set("profileSize",Math.max(60,(d.profileSize||116)-8))} style={{width:20,height:20,borderRadius:5,border:"1px solid #ddd",background:"#fafafa",color:"#888",cursor:"pointer",fontSize:10,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                  <span style={{fontSize:9,color:"#888",minWidth:20,textAlign:"center"}}>{d.profileSize||116}</span>
+                  <button onClick={()=>set("profileSize",Math.min(160,(d.profileSize||116)+8))} style={{width:20,height:20,borderRadius:5,border:"1px solid #ddd",background:"#fafafa",color:"#888",cursor:"pointer",fontSize:10,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                  {(d.profileSize||116)!==116&&<button onClick={()=>set("profileSize",116)} style={{fontSize:8,color:"#888",background:"#fafafa",border:"1px solid #ddd",borderRadius:5,padding:"1px 4px",cursor:"pointer"}}>↺</button>}
+                </div></div>
+                <div style={{flex:1,display:"flex",flexDirection:"column"}}><Label c={ac}>โลโก้ (สูงสุด 3)</Label>
+                <div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:6}}>{(d.logos||[]).map((lg,i)=>{const lo=typeof lg==="string"?{url:lg}:lg;return(<div key={i} style={{width:44,height:44,borderRadius:"50%",overflow:"hidden",border:"1px solid #ddd",position:"relative"}}><img src={lo.url} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/><button onClick={()=>setD(p=>({...p,logos:p.logos.filter((_,j)=>j!==i)}))} style={{position:"absolute",top:-2,right:-2,width:16,height:16,borderRadius:"50%",background:"rgba(0,0,0,.5)",border:"none",color:"#fff",cursor:"pointer",fontSize:9,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button></div>)})}
+                {(d.logos||[]).length<3&&<button onClick={()=>{const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.onchange=e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=ev=>setD(p=>({...p,logos:[...(p.logos||[]),{url:ev.target.result,pos:"50% 50%",zoom:100}]}));r.readAsDataURL(f)};inp.click()}} style={{width:44,height:44,borderRadius:"50%",border:"2px dashed #ddd",background:"#fafafa",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,color:"#ccc"}}>+</button>}
                 </div>
-                <div style={{marginTop:6,display:"flex",gap:4}}><button onClick={()=>setShowProfileBg(!showProfileBg)} style={{flex:1,padding:"4px 0",borderRadius:7,border:`1px solid ${showProfileBg?ac:"#ddd"}`,background:showProfileBg?`${ac}15`:"#fafafa",color:showProfileBg?ac:"#999",cursor:"pointer",fontSize:12,fontWeight:600,transition:"all .15s"}}>{showProfileBg?"✓":"✗"} กรอบโปรไฟล์</button></div>
+                <div style={{display:"flex",alignItems:"center",gap:6,background:"#f8f8f8",borderRadius:8,padding:"6px 10px",border:"1px solid #eee"}}>
+                  <span style={{fontSize:11,color:"#777",flexShrink:0}}>ขนาดโลโก้</span>
+                  <button onClick={()=>set("logoSize",Math.max(24,(d.logoSize||42)-4))} style={{width:30,height:30,borderRadius:8,border:"1px solid #ddd",background:"#fff",color:"#555",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>−</button>
+                  <span style={{fontSize:13,color:"#555",minWidth:26,textAlign:"center",fontWeight:600}}>{d.logoSize||42}</span>
+                  <button onClick={()=>set("logoSize",Math.min(70,(d.logoSize||42)+4))} style={{width:30,height:30,borderRadius:8,border:"1px solid #ddd",background:"#fff",color:"#555",cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>+</button>
                 </div>
                 {/* ─ ภาพพื้นหลังส่วนหัว FREE ─ */}
                 <div style={{marginTop:6,paddingTop:6,borderTop:"1px solid #f5f5f5"}}>
-                  <div style={{fontSize:14,color:"#888",marginBottom:4}}>แทรกภาพพื้นหลังส่วนหัว</div>
+                  <div style={{fontSize:10,color:"#888",marginBottom:4}}>🖼️ ภาพพื้นหลังส่วนหัว (ฟรี)</div>
                   <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:4}}>
-                    {headerWm?(<div style={{display:"flex",alignItems:"center",gap:6}}><div style={{position:"relative",width:80,height:40,borderRadius:8,overflow:"hidden",border:"1px solid #ddd"}}><div style={{width:"100%",height:"100%",backgroundImage:`url(${headerWm})`,backgroundSize:headerWmZoom>100?`${headerWmZoom}%`:"cover",backgroundPosition:headerWmPos,opacity:headerWmOp/100}}/><button onClick={()=>{setHeaderWm("");setHeaderWmPos("50% 50%");setHeaderWmZoom(100);setHeaderWmOp(50)}} style={{position:"absolute",top:2,right:2,width:16,height:16,borderRadius:"50%",background:"rgba(0,0,0,.5)",border:"none",color:"#fff",cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button></div><span style={{fontSize:12,color:"#aaa"}}>ลาก+ซูมบน preview</span></div>):(<button onClick={()=>{const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.onchange=e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=ev=>setHeaderWm(ev.target.result);r.readAsDataURL(f)};inp.click()}} style={{padding:"10px 14px",borderRadius:8,border:"1px solid #ddd",background:"#fafafa",color:"#888",cursor:"pointer",fontSize:14}}>+ 🖼️ เลือกภาพ</button>)}
+                    {headerWm?(<div style={{display:"flex",alignItems:"center",gap:6}}><div style={{position:"relative",width:80,height:40,borderRadius:8,overflow:"hidden",border:"1px solid #ddd"}}><div style={{width:"100%",height:"100%",backgroundImage:`url(${headerWm})`,backgroundSize:headerWmZoom>100?`${headerWmZoom}%`:"cover",backgroundPosition:headerWmPos,opacity:headerWmOp/100}}/><button onClick={()=>{setHeaderWm("");setHeaderWmPos("50% 50%");setHeaderWmZoom(100);setHeaderWmOp(50)}} style={{position:"absolute",top:2,right:2,width:16,height:16,borderRadius:"50%",background:"rgba(0,0,0,.5)",border:"none",color:"#fff",cursor:"pointer",fontSize:9,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button></div><span style={{fontSize:10,color:"#aaa"}}>ลาก+ซูมบน preview</span></div>):(<button onClick={()=>{const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.onchange=e=>{const f=e.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=ev=>setHeaderWm(ev.target.result);r.readAsDataURL(f)};inp.click()}} style={{padding:"6px 14px",borderRadius:8,border:"1px solid #ddd",background:"#fafafa",color:"#888",cursor:"pointer",fontSize:11}}>+ เลือกภาพ</button>)}
                   </div>
-                  {headerWm&&<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}><span style={{fontSize:12,color:"#888",flexShrink:0}}>โปร่งใส</span><input type="range" min="10" max="100" value={headerWmOp} onChange={e=>setHeaderWmOp(Number(e.target.value))} style={{flex:1,height:6,borderRadius:3,appearance:"none",background:"linear-gradient(90deg,#eee,#888)",cursor:"pointer"}}/><span style={{fontSize:12,color:"#888",minWidth:30}}>{headerWmOp}%</span></div>}
+                  {headerWm&&<div style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}><span style={{fontSize:10,color:"#888",flexShrink:0}}>โปร่งใส</span><input type="range" min="10" max="100" value={headerWmOp} onChange={e=>setHeaderWmOp(Number(e.target.value))} style={{flex:1,height:6,borderRadius:3,appearance:"none",background:"linear-gradient(90deg,#eee,#888)",cursor:"pointer"}}/><span style={{fontSize:10,color:"#888",minWidth:30}}>{headerWmOp}%</span></div>}
                 </div>
-                </div></div>
+                </div></div></div>
           <div className="sec"><div className="sec-t" style={{color:ac}}>👤 ผู้บริหาร</div>
           <div className="fld"><div style={{display:"flex",alignItems:"center",marginBottom:4}}><Label c={ac}>ชื่อ-สกุล</Label><ColorPick val={d.tcPersonName} onChange={v=>set("tcPersonName",v)} ac={ac}/><SzBtn val={d.fsPersonName} def={19} onChange={v=>set("fsPersonName",v)}/></div><Input value={d.personName} onChange={v=>set("personName",v)} placeholder="" ac={ac} voice/></div>
           <div className="fld"><div style={{display:"flex",alignItems:"center",marginBottom:4}}><Label c={ac}>ตำแหน่ง (2 บรรทัด)</Label><ColorPick val={d.tcPersonTitle} onChange={v=>set("tcPersonTitle",v)} ac={ac}/><SzBtn val={d.fsPersonTitle} def={12} onChange={v=>set("fsPersonTitle",v)}/></div><div style={{display:"flex",gap:4}}>{(()=>{const ptRef=useRef(null);return(<><div style={{flex:1}}><TextArea value={d.personTitle} onChange={v=>set("personTitle",v)} placeholder="" rows={2} ac={ac} taRef={ptRef}/></div><VoiceBtn value={d.personTitle} onChange={v=>set("personTitle",v)} inputRef={ptRef}/></>);})()}</div></div></div>
-          <button onClick={()=>{if(!window.confirm("รีเซ็ตตำแหน่ง+ขนาดโปรไฟล์?"))return;setHdrTextX(0);setHdrTextY(0);setProfileGX(0);setProfileGY(0);set("profileSize",116);set("profilePos","50% 50%");set("profileZoom",100);}} style={{width:"100%",padding:"6px",border:`1px solid ${ac}30`,borderRadius:8,background:`${ac}06`,color:ac,cursor:"pointer",fontSize:12,marginTop:10,fontFamily:"'Sarabun',sans-serif"}}>↺ reset ตำแหน่ง + ขนาดโปรไฟล์</button>
+          <button onClick={()=>{setHdrTextX(0);setHdrTextY(0);setProfileGX(0);setProfileGY(0);setLogoGX(0);setLogoGY(0)}} style={{width:"100%",padding:"6px",border:`1px solid ${ac}30`,borderRadius:8,background:`${ac}06`,color:ac,cursor:"pointer",fontSize:14,marginTop:6,fontFamily:"'Sarabun',sans-serif"}}>reset ตำแหน่งเริ่มต้น</button>
           </div>{/* end ส่วนหัว card */}
           {/* ── ส่วนเนื้อหา ── */}
           <div style={{border:`1.5px solid ${ac}30`,borderRadius:14,padding:"10px 12px 4px",marginBottom:14,background:`${ac}04`}}>
-          <div id="fs-content" className="sec"><div className="sec-t" style={{color:ac}}>📝 เนื้อหา</div>
+          <div className="sec"><div className="sec-t" style={{color:ac}}>📝 เนื้อหา</div>
             <div className="fld">
   <div style={{display:"flex",alignItems:"center",marginBottom:4,flexWrap:"wrap",gap:2}}>
     <Label c={ac}>หัวข้อข่าว *</Label>
     <SzBtn val={d.fsHeadline} def={14} min={8} max={36} onChange={v=>set("fsHeadline",v)}/>
-    {(d.hlOffX||d.hlOffY)&&<button onClick={()=>{if(!window.confirm("รีเซ็ตตำแหน่งหัวข้อข่าว?"))return;set("hlOffX",0);set("hlOffY",0);}} style={{marginLeft:6,padding:"2px 8px",border:`1px solid ${ac}40`,borderRadius:7,background:`${ac}10`,color:ac,cursor:"pointer",fontSize:12,fontWeight:600}}>↺ ตำแหน่ง</button>}
-    <span style={{fontSize:12,color:"#888",marginLeft:4}}>Text:</span>
+    <span style={{fontSize:10,color:"#888",marginLeft:4}}>Text:</span>
     <button onClick={()=>set("hlColor","")} style={{width:16,height:16,borderRadius:"50%",border:!d.hlColor?`2px solid ${ac}`:"1px solid #ddd",background:"linear-gradient(135deg,#4a0e2e,#5a1a1a)",cursor:"pointer",marginLeft:2}} title="Auto"/>
     <button onClick={()=>set("hlColor","#ffffff")} style={{width:16,height:16,borderRadius:"50%",border:d.hlColor==="#ffffff"?`2px solid ${ac}`:"1px solid #ddd",background:"#fff",cursor:"pointer",marginLeft:2}} title="White"/>
     <button onClick={()=>set("hlColor","#111111")} style={{width:16,height:16,borderRadius:"50%",border:d.hlColor==="#111111"?`2px solid ${ac}`:"1px solid #ddd",background:"#111",cursor:"pointer",marginLeft:2}} title="Black"/>
     <button onClick={()=>set("hlColor","#4a3728")} style={{width:16,height:16,borderRadius:"50%",border:d.hlColor==="#4a3728"?`2px solid ${ac}`:"1px solid #ddd",background:"#4a3728",cursor:"pointer",marginLeft:2}} title="Brown"/>
-    <span style={{fontSize:12,color:"#888",marginLeft:4}}>BG:</span>
+    <span style={{fontSize:10,color:"#888",marginLeft:4}}>BG:</span>
     <span style={{display:"inline-flex",alignItems:"center",gap:3,background:d.hlBgColor?d.hlBgColor:`linear-gradient(135deg,${ac}60,${fc2}60)`,borderRadius:999,padding:"2px 6px",border:`1px solid ${ac}40`,marginLeft:3,cursor:"pointer"}} onClick={()=>set("hlBgColor","")}>
       <button onClick={e=>{e.stopPropagation();set("hlBgColor","")}} style={{width:14,height:14,borderRadius:"50%",border:!d.hlBgColor?`2px solid rgba(255,255,255,.9)`:"1px solid rgba(255,255,255,.5)",background:"rgba(255,255,255,.2)",cursor:"pointer",padding:0}} title="Auto"/>
       <input type="color" value={d.hlBgColor||ac} onClick={e=>e.stopPropagation()} onChange={e=>set("hlBgColor",e.target.value)} style={{width:18,height:18,borderRadius:"50%",border:"2px solid rgba(255,255,255,.7)",padding:0,cursor:"pointer",background:"none"}}/>
-      {d.hlBgColor&&<button onClick={e=>{e.stopPropagation();set("hlBgColor","")}} style={{fontSize:12,color:"rgba(255,255,255,.9)",background:"rgba(0,0,0,.2)",border:"none",borderRadius:8,padding:"1px 4px",cursor:"pointer"}}>✕</button>}
+      {d.hlBgColor&&<button onClick={e=>{e.stopPropagation();set("hlBgColor","")}} style={{fontSize:8,color:"rgba(255,255,255,.9)",background:"rgba(0,0,0,.2)",border:"none",borderRadius:8,padding:"1px 4px",cursor:"pointer"}}>✕</button>}
     </span>
   </div>
   <div style={{display:"flex",gap:4}}>
@@ -2312,36 +1801,36 @@ button:hover{filter:brightness(.96)}
                   setIsRecording(false);
                 }
               },120000);
-            }} style={{padding:"5px 12px",borderRadius:8,border:isRecording?"2px solid #e74c3c":"1px solid #ddd",background:isRecording?"#fce4ec":"#fafafa",color:isRecording?"#e74c3c":"#888",cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:3,animation:isRecording?"pulse 1s infinite":"none",minHeight:34}}>{isRecording?"⏹️ หยุดบันทึก":"🎤 พิมพ์ด้วยเสียง"}</button></div><TextArea value={d.bodyText} onChange={v=>set("bodyText",v)} placeholder={"บรรทัดที่ 1... กด enter 2 ครั้งเพื่อขึ้นย่อหน้าใหม่ เพื่อไม่ให้บรรทัดสุดท้ายของย่อหน้าข้างบน ยืดออกเมื่อจัดรูปแบบ That distributed  เสร็จแล้วแตะตรงบรรทัดที่ว่าง ตามด้วยกดปุ่ม ชิดย่อหน้า เพื่อซ่อนบรรทัดที่ว่าง .\nบรรทัดที่ 2..."} rows={6} ac={ac}/>{isRecording&&<div style={{fontSize:12,color:"#e74c3c",marginTop:4,display:"flex",alignItems:"center",gap:4}}>🔴 กำลังฟัง... พูดได้เลย</div>}</div>
+            }} style={{padding:"5px 12px",borderRadius:8,border:isRecording?"2px solid #e74c3c":"1px solid #ddd",background:isRecording?"#fce4ec":"#fafafa",color:isRecording?"#e74c3c":"#888",cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",gap:3,animation:isRecording?"pulse 1s infinite":"none",minHeight:34}}>{isRecording?"⏹️ หยุดบันทึก":"🎤 พิมพ์ด้วยเสียง"}</button></div><TextArea value={d.bodyText} onChange={v=>set("bodyText",v)} placeholder={"บรรทัดที่ 1... กด enter 2 ครั้งเพื่อขึ้นย่อหน้าใหม่ เพื่อไม่ให้บรรทัดสุดท้ายของย่อหน้าข้างบน ยืดออกเมื่อจัดรูปแบบ That distributed  เสร็จแล้วแตะตรงบรรทัดที่ว่าง ตามด้วยกดปุ่ม ชิดย่อหน้า เพื่อซ่อนบรรทัดที่ว่าง .\nบรรทัดที่ 2..."} rows={6} ac={ac}/>{isRecording&&<div style={{fontSize:10,color:"#e74c3c",marginTop:4,display:"flex",alignItems:"center",gap:4}}>🔴 กำลังฟัง... พูดได้เลย</div>}</div>
           <div style={{display:"flex",gap:4,marginBottom:8,flexWrap:"wrap"}}>
-              <button onClick={()=>setTextAlign("distribute")} style={{flex:1,padding:"5px",borderRadius:8,border:textAlign==="distribute"?`2px solid ${ac}`:"2px solid #e8e8e8",background:textAlign==="distribute"?ac+"10":"#fafafa",color:textAlign==="distribute"?"#333":"#999",cursor:"pointer",fontSize:12}}>Thai Distributed</button>
-              <button onClick={()=>setTextAlign("left")} style={{flex:1,padding:"5px",borderRadius:8,border:textAlign==="left"?`2px solid ${ac}`:"2px solid #e8e8e8",background:textAlign==="left"?ac+"10":"#fafafa",color:textAlign==="left"?"#333":"#999",cursor:"pointer",fontSize:12}}>ชิดซ้าย</button>
-              <button onClick={()=>setCompactParagraph(!compactParagraph)} style={{flex:1,padding:"5px",borderRadius:8,border:compactParagraph?`2px solid ${ac}`:"2px solid #e8e8e8",background:compactParagraph?ac+"10":"#fafafa",color:compactParagraph?ac:"#999",cursor:"pointer",fontSize:12}} title="ซ่อนบรรทัดว่างระหว่างย่อหน้า">{compactParagraph?"🗜️ ชิดย่อหน้า":"↕️ ย่อหน้า"}</button>
+              <button onClick={()=>setTextAlign("distribute")} style={{flex:1,padding:"5px",borderRadius:8,border:textAlign==="distribute"?`2px solid ${ac}`:"2px solid #e8e8e8",background:textAlign==="distribute"?ac+"10":"#fafafa",color:textAlign==="distribute"?"#333":"#999",cursor:"pointer",fontSize:11}}>Thai Distributed</button>
+              <button onClick={()=>setTextAlign("left")} style={{flex:1,padding:"5px",borderRadius:8,border:textAlign==="left"?`2px solid ${ac}`:"2px solid #e8e8e8",background:textAlign==="left"?ac+"10":"#fafafa",color:textAlign==="left"?"#333":"#999",cursor:"pointer",fontSize:11}}>ชิดซ้าย</button>
+              <button onClick={()=>setCompactParagraph(!compactParagraph)} style={{flex:1,padding:"5px",borderRadius:8,border:compactParagraph?`2px solid ${ac}`:"2px solid #e8e8e8",background:compactParagraph?ac+"10":"#fafafa",color:compactParagraph?ac:"#999",cursor:"pointer",fontSize:11}} title="ซ่อนบรรทัดว่างระหว่างย่อหน้า">{compactParagraph?"🗜️ ชิดย่อหน้า":"↕️ ย่อหน้า"}</button>
          </div>
           </div>
-          <button onClick={()=>{if(!window.confirm("รีเซ็ตตำแหน่งเนื้อหา?"))return;setContentOX(0);setContentOY(0);}} style={{width:"100%",padding:"6px",border:`1px solid ${ac}30`,borderRadius:8,background:`${ac}06`,color:ac,cursor:"pointer",fontSize:12,marginTop:6,fontFamily:"'Sarabun',sans-serif"}}>↺ reset ตำแหน่ง</button>
+          <button onClick={()=>{setContentOX(0);setContentOY(0)}} style={{width:"100%",padding:"6px",border:`1px solid ${ac}30`,borderRadius:8,background:`${ac}06`,color:ac,cursor:"pointer",fontSize:14,marginTop:6,fontFamily:"'Sarabun',sans-serif"}}>reset ตำแหน่งเริ่มต้น</button>
           </div>{/* end ส่วนเนื้อหา card */}
           {/* ── ส่วนรูปภาพ ── */}
           <div style={{border:`1.5px solid ${ac}30`,borderRadius:14,padding:"10px 12px 4px",marginBottom:14,background:`${ac}04`}}>
-          <div id="fs-images" className="sec"><div className="sec-t" style={{color:ac}}>📷 รูปภาพกิจกรรม</div>
+          <div className="sec"><div className="sec-t" style={{color:ac}}>📷 รูปภาพกิจกรรม</div>
             {/* โซนบน: 1-3 รูป */}
             <div style={{marginBottom:10}}>
-              <div style={{fontSize:12,fontWeight:600,color:ac,marginBottom:6}}>📌 โซนบน (1–3 รูป)</div>
+              <div style={{fontSize:11,fontWeight:600,color:ac,marginBottom:6}}>📌 โซนบน (1–3 รูป)</div>
               <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:6}}>{(d.topImages||[]).map((img,i)=>(<div key={i} style={{display:"flex",gap:8,alignItems:"center",background:"#fafafa",borderRadius:8,padding:6,border:`1px solid ${ac}25`}}>
                 <div style={{width:40,height:30,borderRadius:5,overflow:"hidden",flexShrink:0,backgroundImage:`url(${img.url})`,backgroundSize:"cover",backgroundPosition:img.pos}}/>
-                <div style={{flex:1,fontSize:12,color:"#888"}}>{i===0?"🖼️ ซ้าย (เด่น)":`🖼️ บน ${i+1}`}</div>
-                <button onClick={()=>rmTopImg(i)} style={{padding:"3px 8px",borderRadius:6,background:"#fff",border:"1px solid #f0d0d0",color:"#e74c3c",cursor:"pointer",fontSize:12}}>✕</button>
+                <div style={{flex:1,fontSize:11,color:"#888"}}>{i===0?"🖼️ ซ้าย (เด่น)":`🖼️ บน ${i+1}`}</div>
+                <button onClick={()=>rmTopImg(i)} style={{padding:"3px 8px",borderRadius:6,background:"#fff",border:"1px solid #f0d0d0",color:"#e74c3c",cursor:"pointer",fontSize:11}}>✕</button>
               </div>))}</div>
               {(d.topImages||[]).length<3&&<button onClick={()=>topImgRef.current?.click()} style={{width:"100%",padding:"10px",borderRadius:10,border:`2px dashed ${ac}40`,background:ac+"06",color:ac,cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"'Kanit',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>📸 เพิ่มรูปโซนบน ({(d.topImages||[]).length}/3)</button>}
               <input ref={topImgRef} type="file" accept="image/*" multiple onChange={e=>{const canAdd=3-(d.topImages||[]).length;Array.from(e.target.files).slice(0,canAdd).forEach(f=>{const r=new FileReader();r.onload=ev=>addTopImg(ev.target.result);r.readAsDataURL(f)});e.target.value=""}} style={{display:"none"}}/>
             </div>
             {/* โซนล่าง: 1-6 รูป */}
             <div>
-              <div style={{fontSize:12,fontWeight:600,color:ac,marginBottom:6}}>📌 โซนล่าง (1–6 รูป)</div>
+              <div style={{fontSize:11,fontWeight:600,color:ac,marginBottom:6}}>📌 โซนล่าง (1–6 รูป)</div>
               <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:6}}>{(d.botImages||[]).map((img,i)=>(<div key={i} style={{display:"flex",gap:8,alignItems:"center",background:"#fafafa",borderRadius:8,padding:6,border:"1px solid #e8e8e8"}}>
                 <div style={{width:40,height:30,borderRadius:5,overflow:"hidden",flexShrink:0,backgroundImage:`url(${img.url})`,backgroundSize:"cover",backgroundPosition:img.pos}}/>
-                <div style={{flex:1,fontSize:12,color:"#888"}}>🖼️ ล่าง {i+1}</div>
-                <button onClick={()=>rmBotImg(i)} style={{padding:"3px 8px",borderRadius:6,background:"#fff",border:"1px solid #f0d0d0",color:"#e74c3c",cursor:"pointer",fontSize:12}}>✕</button>
+                <div style={{flex:1,fontSize:11,color:"#888"}}>🖼️ ล่าง {i+1}</div>
+                <button onClick={()=>rmBotImg(i)} style={{padding:"3px 8px",borderRadius:6,background:"#fff",border:"1px solid #f0d0d0",color:"#e74c3c",cursor:"pointer",fontSize:11}}>✕</button>
               </div>))}</div>
               {(d.botImages||[]).length<6&&<button onClick={()=>botImgRef.current?.click()} style={{width:"100%",padding:"10px",borderRadius:10,border:"2px dashed #ddd",background:"#fafafa",color:"#888",cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"'Kanit',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>📸 เพิ่มรูปโซนล่าง ({(d.botImages||[]).length}/6)</button>}
               <input ref={botImgRef} type="file" accept="image/*" multiple onChange={e=>{const canAdd=6-(d.botImages||[]).length;Array.from(e.target.files).slice(0,canAdd).forEach(f=>{const r=new FileReader();r.onload=ev=>addBotImg(ev.target.result);r.readAsDataURL(f)});e.target.value=""}} style={{display:"none"}}/>
@@ -2350,24 +1839,19 @@ button:hover{filter:brightness(.96)}
           </div>{/* end รูปภาพ card */}
           {/* ── ส่วนท้าย: ติดต่อ ── */}
           <div style={{border:`1.5px solid ${ac}30`,borderRadius:14,padding:"10px 12px 4px",marginBottom:14,background:`${ac}04`}}>
-          <div id="fs-footer" className="sec"><div className="sec-t" style={{color:ac}}>📍 ติดต่อ</div>
+          <div className="sec"><div className="sec-t" style={{color:ac}}>📍 ติดต่อ</div>
           <div className="fld"><div style={{display:"flex",alignItems:"center",marginBottom:4}}><Label c={ac}>เว็บไซต์</Label><ColorPick val={d.tcWebsite} onChange={v=>set("tcWebsite",v)} ac={ac}/><SzBtn val={d.fsWebsite} def={13} onChange={v=>set("fsWebsite",v)}/></div><Input value={d.website} onChange={v=>set("website",v)} placeholder="www.example.com" ac={ac} voice/></div>
           <div className="fld"><div style={{display:"flex",alignItems:"center",marginBottom:4}}><Label c={ac}>ที่อยู่</Label><ColorPick val={d.tcAddress} onChange={v=>set("tcAddress",v)} ac={ac}/><SzBtn val={d.fsAddress} def={13} onChange={v=>set("fsAddress",v)}/></div><Input value={d.address} onChange={v=>set("address",v)} placeholder="ที่อยู่สำนักงาน" ac={ac} voice/></div>
           <div className="fld"><div style={{display:"flex",alignItems:"center",marginBottom:4}}><Label c={ac}>เบอร์โทร</Label><ColorPick val={d.tcPhone} onChange={v=>set("tcPhone",v)} ac={ac}/><SzBtn val={d.fsPhone} def={13} onChange={v=>set("fsPhone",v)}/></div><Input value={d.phone} onChange={v=>set("phone",v)} placeholder="042-897-037" ac={ac} voice/></div>
           <ImgUp label="QR Code" icon="📱" src={d.qrUrl} onUpload={v=>set("qrUrl",v)} onRemove={()=>set("qrUrl","")} ac={ac} h={80}/></div>
-          <button onClick={()=>{if(!window.confirm("รีเซ็ตตำแหน่งส่วนท้าย?"))return;setFooterTX(0);setFooterTY(0);}} style={{width:"100%",padding:"6px",border:`1px solid ${ac}30`,borderRadius:8,background:`${ac}06`,color:ac,cursor:"pointer",fontSize:12,marginTop:6,fontFamily:"'Sarabun',sans-serif"}}>↺ reset ตำแหน่ง</button>
+          <button onClick={()=>{setFooterTX(0);setFooterTY(0)}} style={{width:"100%",padding:"6px",border:`1px solid ${ac}30`,borderRadius:8,background:`${ac}06`,color:ac,cursor:"pointer",fontSize:14,marginTop:6,fontFamily:"'Sarabun',sans-serif"}}>reset ตำแหน่งเริ่มต้น</button>
           </div>{/* end ส่วนท้าย card */}
-          {/* Download + Reset + Save/Load */}
+          {/* Download + Reset */}
           <div style={{padding:"12px 0",borderTop:`2px solid ${ac}20`}}>
             {exportMsg&&<div style={{padding:"6px 12px",borderRadius:8,marginBottom:8,fontSize:12,textAlign:"center",background:exportMsg.startsWith("✅")?"#e8f5e9":"#fce4ec",color:exportMsg.startsWith("✅")?"#2e7d32":"#c62828"}}>{exportMsg}</div>}
-            <div style={{display:"flex",gap:6,marginBottom:6}}>
-              <button onClick={handleSaveProject} style={{flex:1,padding:"8px 4px",border:`1px solid ${ac}40`,borderRadius:9,background:`${ac}10`,color:ac,cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:"'Kanit',sans-serif"}}>💾 บันทึกโปรเจค</button>
-              <button onClick={()=>projFileRef.current?.click()} style={{flex:1,padding:"8px 4px",border:"1px solid #bbb",borderRadius:9,background:"#fafafa",color:"#555",cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:"'Kanit',sans-serif"}}>📂 โหลดโปรเจค</button>
-              <input ref={projFileRef} type="file" accept=".nl365,application/json" onChange={handleLoadProject} style={{display:"none"}}/>
-            </div>
             <div style={{display:"flex",gap:8}}>
-  <button onClick={()=>{if(!window.confirm("รีเซ็ตทุกอย่างกลับเป็นค่าเริ่มต้น?"))return;handleReset();}} style={{padding:"10px 14px",border:"none",borderRadius:10,background:`linear-gradient(135deg,${ac}20,${fc2}20)`,color:ac,cursor:"pointer",fontSize:13}}>🔄</button>
-  <button onClick={()=>{setSelectedEl(null);handleExport();}} disabled={exporting||!d.headline} style={{flex:1,padding:"12px",border:"none",borderRadius:10,background:!d.headline?"#eee":`linear-gradient(135deg,${ac},${fc2})`,color:!d.headline?"#bbb":"#fff",cursor:!d.headline?"default":"pointer",fontSize:15,fontWeight:600,fontFamily:"'Kanit',sans-serif",boxShadow:d.headline?`0 4px 12px ${ac}30`:"none"}}>{exporting?"⏳ กำลังสร้าง...":"📥 ดาวน์โหลด"}</button>
+  <button onClick={handleReset} style={{padding:"10px 14px",border:"none",borderRadius:10,background:`linear-gradient(135deg,${ac}20,${fc2}20)`,color:ac,cursor:"pointer",fontSize:13}}>🔄</button>
+  <button onClick={handleExport} disabled={exporting||!d.headline} style={{flex:1,padding:"12px",border:"none",borderRadius:10,background:!d.headline?"#eee":`linear-gradient(135deg,${ac},${fc2})`,color:!d.headline?"#bbb":"#fff",cursor:!d.headline?"default":"pointer",fontSize:15,fontWeight:600,fontFamily:"'Kanit',sans-serif",boxShadow:d.headline?`0 4px 12px ${ac}30`:"none"}}>{exporting?"⏳ กำลังสร้าง...":"📥 ดาวน์โหลด"}</button>
 </div>
 {exportBlob&&<div style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,.55)",display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>{setExportBlob(null);setExportFname("");}}>
   <div onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:480,background:"#fff",borderRadius:"20px 20px 0 0",padding:"20px 20px calc(20px + env(safe-area-inset-bottom,0px))",boxShadow:"0 -8px 40px rgba(0,0,0,.2)"}}>
@@ -2394,7 +1878,7 @@ button:hover{filter:brightness(.96)}
   </div>
 </div>}
           </div>
-          <div style={{height:"max(80px, env(safe-area-inset-bottom, 80px))"}}/>
+          <div style={{height:20}}/>
           </div>{/* end form fields */}
                 </div>{/* end single scroll */}
       </div>{/* end form-col */}
@@ -2413,75 +1897,24 @@ button:hover{filter:brightness(.96)}
   {/* Zoom bar — ไม่ scroll, อยู่บนสุดเสมอ */}
   <div style={{flexShrink:0,display:"flex",justifyContent:"center",padding:"6px 0 4px",background:"#f0f0f5",zIndex:99}}>
     <div style={{display:"flex",alignItems:"center",gap:2,background:"rgba(255,255,255,0.92)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",borderRadius:50,padding:"4px 6px",boxShadow:"0 4px 14px rgba(0,0,0,0.10)",border:"1px solid rgba(0,0,0,0.06)"}}>
-      <span style={{fontSize:12,color:"#999",padding:"0 6px"}}>🔍</span>
+      <span style={{fontSize:10,color:"#999",padding:"0 6px"}}>🔍</span>
       {[0.3,0.45,0.6,0.8,1.0,1.2].map(s=>(
-        <button key={s} onClick={()=>setScale(s)} style={{padding:"4px 10px",border:"none",borderRadius:50,background:scale===s?ac:"transparent",color:scale===s?"#fff":"#888",cursor:"pointer",fontSize:12,fontWeight:scale===s?600:400,fontFamily:"'Sarabun',sans-serif",minWidth:38}}>
+        <button key={s} onClick={()=>setScale(s)} style={{padding:"4px 10px",border:"none",borderRadius:50,background:scale===s?ac:"transparent",color:scale===s?"#fff":"#888",cursor:"pointer",fontSize:11,fontWeight:scale===s?600:400,fontFamily:"'Sarabun',sans-serif",minWidth:38}}>
           {Math.round(s*100)}%
         </button>
       ))}
     </div>
   </div>
   {/* Scroll area — เลื่อนได้ทั้งแนวตั้งและแนวนอน */}
-<div 
-  ref={prevScrollRef} 
-  style={{
-    flex: 1,
-    minHeight: 0,
-    overflow: "auto",
-    WebkitOverflowScrolling: "touch", // เปิด Momentum Scroll สำหรับ iOS
-    overscrollBehavior: "contain",    // ป้องกันการเลื่อนหลุดไปโดนหน้าจอหลัก
-    touchAction: "auto",              // ให้เบราว์เซอร์ตัดสินใจเรื่องการเลื่อนเอง (ลื่นที่สุด)
-    background: "#f5f7fa"
-  }}
->
-  <div style={{ 
-    minWidth: "fit-content", 
-    margin: "0 auto", 
-    display: "flex", 
-    flexDirection: "column", 
-    alignItems: "center", 
-    padding: "40px" // ลด padding ลงหน่อยเพื่อให้พื้นที่ปัดกว้างขึ้น
-  }}>
-    <div style={{ 
-      width: Math.ceil(794 * scale), 
-      height: Math.ceil(1123 * scale), 
-      flexShrink: 0, 
-      margin: "0 auto" 
-    }}>
-     <div 
-  ref={wrapRef} 
-  style={{
-    transform:`scale(${scale})`,
-    transformOrigin:"top left",
-    width:794,
-    height:1123,
-    /* 1. เปลี่ยนเป็น pan-x pan-y เพื่อบอกเบราว์เซอร์ว่าส่วนนี้ "ยอมให้เลื่อน" ได้ทั้งสองแนว */
-    touchAction: "pan-x pan-y", 
-    /* 2. เพิ่มบรรทัดนี้เพื่อลดภาระการคำนวณของเบราว์เซอร์ขณะเลื่อน */
-    pointerEvents: "auto" 
-  }} 
-  /* 3. หากไม่ได้ใช้ฟังก์ชัน Long Press หรือการกดใน Preview 
-     แนะนำให้ลอง "เอา 2 บรรทัดข้างล่างนี้ออก" จะทำให้การเลื่อนลื่นที่สุดครับ */
-  onTouchStartCapture={onPreviewTouchStartCapture}
-  onTouchEndCapture={onPreviewTouchEndCapture}
-  onDoubleClick={(e)=>{
-    /* desktop: double-click เลือก/ยกเลิกเลือก element */
-    try{
-      const clickEl=e.target.closest('[data-selid]');
-      const selId=clickEl?.dataset?.selid;
-      if(selId){setSelectedEl(prev=>prev===selId?null:selId);const sec=selIdToSection(selId);if(sec)scrollToSection(sec);}
-      else setSelectedEl(null);
-    }catch(_){}
-  }}
-  onClick={(e)=>{
-    /* single-click บน empty space → deselect (desktop) */
-    if(!e.target.closest('[data-selid]')&&selectedEl)setSelectedEl(null);
-  }}
->
-            <Preview ck={ck} sk={sk} d={d} id="main-preview" hue={hue} brightness={brightness} saturation={saturation} vibrance={vibrance} compactParagraph={compactParagraph} stripGradDir={stripGradDir} stripGradOn={stripGradOn} hdrTextX={hdrTextX} hdrTextY={hdrTextY} headerWm={headerWm} headerWmPos={headerWmPos} headerWmZoom={headerWmZoom} headerWmOp={headerWmOp} textAlign={textAlign} isPro={isPro} scale={scale} stripHue={stripHue} stripBrt={stripBrt} stripSat={stripSat} stripVib={stripVib} stripTopHue={stripTopHue} stripTopBrt={stripTopBrt} stripTopSat={stripTopSat} stripTopVib={stripTopVib} stripBotHue={stripBotHue} stripBotBrt={stripBotBrt} stripBotSat={stripBotSat} stripBotVib={stripBotVib} showHdrBg={showHdrBg} showBodyBg={showBodyBg} showFtrBg={showFtrBg} showBgPat={showBgPat} profileGX={profileGX} profileGY={profileGY} contentOX={contentOX} contentOY={contentOY} footerTX={footerTX} footerTY={footerTY} showProfileBg={showProfileBg} stripTopOffY={stripTopOffY} stripBotOffY={stripBotOffY} onImgDrag={onImgDrag} onImgZoom={onImgZoom} onProfileDrag={onProfileDrag} onProfileZoom={onProfileZoom} onHdrWmDrag={p=>setHeaderWmPos(p)} onHdrWmZoom={z=>setHeaderWmZoom(z)} onHdrTextDrag={(x,y)=>{setHdrTextX(x);setHdrTextY(y);}} onHlDrag={(x,y)=>{setD(p=>({...p,hlOffX:x,hlOffY:y}));}} onTopHChange={v=>set("topImgH",v)} onBotHChange={v=>set("botImgH",v)} onFooterTDrag={(x,y)=>{setFooterTX(x);setFooterTY(y);}} onProfileGDrag={(x,y)=>{setProfileGX(x);setProfileGY(y);}} onContentDrag={(x,y)=>{setContentOX(x);setContentOY(y);}} onStripTopDrag={v=>setStripTopOffY(v)} onStripBotDrag={v=>setStripBotOffY(v)} decoImgs={decoImgs} onDecoDrag={(i,x,y)=>setDecoImgs(p=>p.map((img,j)=>j===i?{...img,x,y}:img))} onDecoResize={(i,w,h)=>setDecoImgs(p=>p.map((img,j)=>j===i?{...img,w,h}:img))} onDecoRotate={(i,rot)=>setDecoImgs(p=>p.map((img,j)=>j===i?{...img,rot}:img))} selectedEl={selectedEl}/>
+  <div style={{flex:1,minHeight:0,overflow:"auto",overflowX:"auto",overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+    {/* inner centering wrapper: minWidth:fit-content → horizontal scroll bar appears when content wider than viewport */}
+    <div style={{minWidth:"fit-content",margin:"0 auto",display:"flex",flexDirection:"column",alignItems:"center",padding:"8px 20px"}}>
+        <div style={{width:Math.ceil(794*scale),height:Math.ceil(1123*scale),flexShrink:0,margin:"0 auto"}}>
+          <div ref={wrapRef} style={{transform:`scale(${scale})`,transformOrigin:"top left",width:794,height:1123}}>
+            <Preview ck={ck} sk={sk} d={d} id="main-preview" hue={hue} brightness={brightness} saturation={saturation} vibrance={vibrance} compactParagraph={compactParagraph} stripGradDir={stripGradDir} stripGradOn={stripGradOn} hdrTextX={hdrTextX} hdrTextY={hdrTextY} headerWm={headerWm} headerWmPos={headerWmPos} headerWmZoom={headerWmZoom} headerWmOp={headerWmOp} textAlign={textAlign} isPro={isPro} scale={scale} stripHue={stripHue} stripBrt={stripBrt} stripSat={stripSat} stripVib={stripVib} showHdrBg={showHdrBg} showBodyBg={showBodyBg} showFtrBg={showFtrBg} showBgPat={showBgPat} profileGX={profileGX} profileGY={profileGY} logoGX={logoGX} logoGY={logoGY} contentOX={contentOX} contentOY={contentOY} footerTX={footerTX} footerTY={footerTY} showProfileBg={showProfileBg} showLogoBg={showLogoBg} onImgDrag={onImgDrag} onImgZoom={onImgZoom} onProfileDrag={onProfileDrag} onProfileZoom={onProfileZoom} onHdrWmDrag={p=>setHeaderWmPos(p)} onHdrWmZoom={z=>setHeaderWmZoom(z)} onHdrTextDrag={(x,y)=>{setHdrTextX(x);setHdrTextY(y);}} onHlDrag={(x,y)=>{set("hlOffX",x);set("hlOffY",y);}} onLogoDrag={onLogoDrag} onLogoZoom={onLogoZoom} onTopHChange={v=>set("topImgH",v)} onBotHChange={v=>set("botImgH",v)} onFooterTDrag={(x,y)=>{setFooterTX(x);setFooterTY(y);}} onProfileGDrag={(x,y)=>{setProfileGX(x);setProfileGY(y);}} onContentDrag={(x,y)=>{setContentOX(x);setContentOY(y);}} onLogoGDrag={(x,y)=>{setLogoGX(x);setLogoGY(y);}} onSet={set}/>
           </div>
         </div>
-        <div style={{height:"calc(100px + env(safe-area-inset-bottom,0px))",flexShrink:0}}/>
+        <div style={{height:"calc(32px + env(safe-area-inset-bottom))",flexShrink:0}}/>
     </div>
   </div>
       </div>
@@ -2560,7 +1993,6 @@ const autoRegister=async(email)=>{
   }catch(e){}
 };
 
-class AppErrorBoundary extends React.Component{constructor(p){super(p);this.state={err:null};}static getDerivedStateFromError(e){return{err:e};}componentDidCatch(e){console.error("AppError:",e);}render(){if(this.state.err){return React.createElement("div",{style:{padding:32,fontFamily:"'Sarabun',sans-serif",color:"#e74c3c",background:"#fff",minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12}},React.createElement("div",{style:{fontSize:24}},"⚠️"),React.createElement("div",{style:{fontWeight:600,fontSize:16}},"เกิดข้อผิดพลาด"),React.createElement("div",{style:{fontSize:13,color:"#888",maxWidth:320,textAlign:"center"}},this.state.err?.message||"Unknown error"),React.createElement("button",{onClick:()=>this.setState({err:null}),style:{marginTop:8,padding:"8px 24px",borderRadius:8,border:"none",background:"#4a90d9",color:"#fff",cursor:"pointer",fontSize:14}},"ลองใหม่"));}return this.props.children;}}
-function Root(){const [user,setUser]=useState(null);const [checking,setChecking]=useState(true);const [menuOpen,setMenuOpen]=useState(false);useEffect(()=>{const unsub=auth.onAuthStateChanged(u=>{if(u&&ALLOWED_DOMAINS&&ALLOWED_DOMAINS.length>0){if(!ALLOWED_DOMAINS.some(d=>u.email.endsWith(d))){auth.signOut();setUser(null);setChecking(false);return}}if(u){window._nl365={email:u.email};autoRegister(u.email);}setUser(u);setChecking(false)});return unsub},[]);if(checking)return(<div style={{minHeight:"100vh",background:"#f8f8ff",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}><img src="./icons/icon-192x192.png" style={{width:64,height:64,borderRadius:16,objectFit:"cover"}} alt="Newsletter365"/><div style={{color:"#999",fontFamily:"'Kanit',sans-serif"}}>กำลังตรวจสอบ...</div></div>);if(!user)return <LoginScreen/>;return(<div style={{height:"100vh",display:"flex",flexDirection:"column"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 14px",background:"#fff",borderBottom:"1px solid #eee",flexShrink:0,fontSize:12}}><div style={{display:"flex",alignItems:"center",gap:8}}>{user.photoURL&&<img src={user.photoURL} style={{width:22,height:22,borderRadius:"50%"}} alt="" referrerPolicy="no-referrer"/>}<span style={{color:"#888"}}>{user.displayName||user.email}</span></div><div style={{position:"relative"}}><button onClick={()=>setMenuOpen(!menuOpen)} style={{padding:"4px 12px",border:"1px solid #ddd",borderRadius:6,background:menuOpen?"#f0f0f5":"#fafafa",color:"#888",cursor:"pointer",fontSize:12,display:"flex",alignItems:"center",gap:4}}>☰ เมนู <span style={{fontSize:12,transform:menuOpen?"rotate(180deg)":"none",transition:"transform .2s"}}>▾</span></button>{menuOpen&&<><div onClick={()=>setMenuOpen(false)} style={{position:"fixed",inset:0,zIndex:9998}}/><div style={{position:"absolute",top:"100%",right:0,marginTop:4,background:"#fff",borderRadius:10,border:"1px solid #e8e8e8",boxShadow:"0 8px 24px rgba(0,0,0,.12)",zIndex:9999,minWidth:180,overflow:"hidden",fontFamily:"'Sarabun',sans-serif"}}><button onClick={()=>{window.open("https://saantie.github.io/newsletter-generator/user-manual.html");setMenuOpen(false)}} style={{width:"100%",padding:"10px 14px",border:"none",borderBottom:"1px solid #f0f0f0",background:"#fff",color:"#555",cursor:"pointer",fontSize:12,textAlign:"left",display:"flex",alignItems:"center",gap:8}}><span>📖</span> คู่มือการใช้งาน</button><button onClick={()=>{const subj=encodeURIComponent("สอบถาม/แจ้งปัญหา Newsletter Generator");const body=encodeURIComponent(`ผู้ใช้: ${user.email||""}\n\nรายละเอียด:\n`);window.open(`mailto:saantie@gmail.com?subject=${subj}&body=${body}`);setMenuOpen(false)}} style={{width:"100%",padding:"10px 14px",border:"none",borderBottom:"1px solid #f0f0f0",background:"#fff",color:"#555",cursor:"pointer",fontSize:12,textAlign:"left",display:"flex",alignItems:"center",gap:8}}><span>💬</span> สอบถาม/แจ้งปัญหา</button><button onClick={()=>{auth.signOut();setMenuOpen(false)}} style={{width:"100%",padding:"10px 14px",border:"none",background:"#fff",color:"#e74c3c",cursor:"pointer",fontSize:12,textAlign:"left",display:"flex",alignItems:"center",gap:8}}><span>🚪</span> ออกจากระบบ</button></div></>}</div></div><div style={{flex:1,overflow:"hidden"}}><AppErrorBoundary><App/></AppErrorBoundary></div></div>)}
+function Root(){const [user,setUser]=useState(null);const [checking,setChecking]=useState(true);const [menuOpen,setMenuOpen]=useState(false);useEffect(()=>{const unsub=auth.onAuthStateChanged(u=>{if(u&&ALLOWED_DOMAINS&&ALLOWED_DOMAINS.length>0){if(!ALLOWED_DOMAINS.some(d=>u.email.endsWith(d))){auth.signOut();setUser(null);setChecking(false);return}}if(u){window._nl365={email:u.email};autoRegister(u.email);}setUser(u);setChecking(false)});return unsub},[]);if(checking)return(<div style={{minHeight:"100vh",background:"#f8f8ff",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}}><img src="./icons/icon-192x192.png" style={{width:64,height:64,borderRadius:16,objectFit:"cover"}} alt="Newsletter365"/><div style={{color:"#999",fontFamily:"'Kanit',sans-serif"}}>กำลังตรวจสอบ...</div></div>);if(!user)return <LoginScreen/>;return(<div style={{height:"100vh",display:"flex",flexDirection:"column"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 14px",background:"#fff",borderBottom:"1px solid #eee",flexShrink:0,fontSize:12}}><div style={{display:"flex",alignItems:"center",gap:8}}>{user.photoURL&&<img src={user.photoURL} style={{width:22,height:22,borderRadius:"50%"}} alt="" referrerPolicy="no-referrer"/>}<span style={{color:"#888"}}>{user.displayName||user.email}</span></div><div style={{position:"relative"}}><button onClick={()=>setMenuOpen(!menuOpen)} style={{padding:"4px 12px",border:"1px solid #ddd",borderRadius:6,background:menuOpen?"#f0f0f5":"#fafafa",color:"#888",cursor:"pointer",fontSize:11,display:"flex",alignItems:"center",gap:4}}>☰ เมนู <span style={{fontSize:8,transform:menuOpen?"rotate(180deg)":"none",transition:"transform .2s"}}>▾</span></button>{menuOpen&&<><div onClick={()=>setMenuOpen(false)} style={{position:"fixed",inset:0,zIndex:9998}}/><div style={{position:"absolute",top:"100%",right:0,marginTop:4,background:"#fff",borderRadius:10,border:"1px solid #e8e8e8",boxShadow:"0 8px 24px rgba(0,0,0,.12)",zIndex:9999,minWidth:180,overflow:"hidden",fontFamily:"'Sarabun',sans-serif"}}><button onClick={()=>{window.open("https://saantie.github.io/newsletter-generator/user-manual.html");setMenuOpen(false)}} style={{width:"100%",padding:"10px 14px",border:"none",borderBottom:"1px solid #f0f0f0",background:"#fff",color:"#555",cursor:"pointer",fontSize:12,textAlign:"left",display:"flex",alignItems:"center",gap:8}}><span>📖</span> คู่มือการใช้งาน</button><button onClick={()=>{const subj=encodeURIComponent("สอบถาม/แจ้งปัญหา Newsletter Generator");const body=encodeURIComponent(`ผู้ใช้: ${user.email||""}\n\nรายละเอียด:\n`);window.open(`mailto:saantie@gmail.com?subject=${subj}&body=${body}`);setMenuOpen(false)}} style={{width:"100%",padding:"10px 14px",border:"none",borderBottom:"1px solid #f0f0f0",background:"#fff",color:"#555",cursor:"pointer",fontSize:12,textAlign:"left",display:"flex",alignItems:"center",gap:8}}><span>💬</span> สอบถาม/แจ้งปัญหา</button><button onClick={()=>{auth.signOut();setMenuOpen(false)}} style={{width:"100%",padding:"10px 14px",border:"none",background:"#fff",color:"#e74c3c",cursor:"pointer",fontSize:12,textAlign:"left",display:"flex",alignItems:"center",gap:8}}><span>🚪</span> ออกจากระบบ</button></div></>}</div></div><div style={{flex:1,overflow:"hidden"}}><App/></div></div>)}
 ReactDOM.createRoot(document.getElementById("root")).render(<Root/>);
 </script></body></html>
