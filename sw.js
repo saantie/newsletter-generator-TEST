@@ -2,7 +2,7 @@
    Newsletter365 — Service Worker
    เปลี่ยน CACHE_VERSION ทุกครั้งที่ push โค้ดใหม่
    ============================================================ */
-const CACHE_VERSION = "nl365-v4";
+const CACHE_VERSION = "nl365-v1";
 const CACHE_NAME = CACHE_VERSION;
 
 /* ไฟล์ที่ cache ไว้สำหรับ offline */
@@ -16,18 +16,9 @@ const PRECACHE_URLS = [
 
 /* ── Install: precache ไฟล์หลัก ── */
 self.addEventListener("install", (e) => {
-  e.waitUntil((async () => {
-    const cache = await caches.open(CACHE_NAME);
-    // Add files one-by-one and ignore failures (missing files won't fail the whole install)
-    for (const url of PRECACHE_URLS) {
-      try {
-        await cache.add(url);
-      } catch (err) {
-        // Log but do not fail install — missing icons/resources are common in dev
-        console.warn('sw: precache failed for', url, err && err.message);
-      }
-    }
-  })());
+  e.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
+  );
   /* ไม่ skipWaiting ที่นี่ — รอให้ผู้ใช้กดอัปเดตเอง */
 });
 
